@@ -12,6 +12,11 @@ library(tidyverse)
 
 ```{r}
 acc_2017 <- read.csv(file = "ACC_2017_22.csv", header = T)
+big12_2017 <- read.csv(file = "Big12_2017_22.csv", header = T)
+big10_2017 <- read.csv(file = "Big10_2017_22.csv", header = T)
+bigeast_2017 <- read.csv(file = "BigEast_2017_22.csv", header = T)
+sec_2017 <- read.csv(file = "SEC_2017_22.csv", header = T)
+pac12_2017 <- read.csv(file = "Pac12_2017_22.csv", header = T)
 tran_2015 <- read.csv(file = "trank_data_15.csv", header = F)
 tran_2016 <- read.csv(file = "trank_data_16.csv", header = F)
 tran_2017 <- read.csv(file = "trank_data_17.csv", header = F)
@@ -20,23 +25,47 @@ tran_2019 <- read.csv(file = "trank_data_19.csv", header = F)
 tran_2020 <- read.csv(file = "trank_data_20.csv", header = F)
 tran_2021 <- read.csv(file = "trank_data_21.csv", header = F)
 tran_2022 <- read.csv(file = "trank_data_22.csv", header = F)
+cbb_teams <- read.csv(file = "cbb_teams.csv", header = T)
 ``` 
 
 ```{r}
-old_conference = c("SEC", "SEC", "American East", "Big 12", "WCC", "Big South", "C-USA", "C-USA", "C-USA", "C-USA", "AAC", "CAA", "Pac-12", "MWC", "Big East", "Ivy", "CAA", "CAA", "CAA", "Big East", "CAA", "AAC", "AAC", "Southern", "SEC", "ASUN", "Atlantic 10", "Atlantic 10", "AAC", "Big 10", "Big 10", "MVC", "Patriot", "Big East", "C-USA", "C-USA", "ACC", "Horizon", "SEC", "SEC", "Big 10", "Big 10", "WAC", "MEAC", "Big Sky", "Big 12", "Big 12", "Big 12", "ACC", "Big East", "MAAC", "Big South", "C-USA", "C-USA", "Atlantic 10", "Northeast", "Atlantic 10", "Southern", "Southern", "WCC", "AAC", "Big East", "Pac-12", "American East", "American East", "Big 12", "Big 12", "AAC", "CAA", "MWC", "Pac-12", "Pac-12", "Pac-12", "SEC", "Big East", "ACC", "Southern", "Southern", "MAC", "CAA", "Southern", "Southern", "Ivy", "Horizon")
+# Making 1 giant transfer file
+tran <- rbind(big10_2017,big12_2017,bigeast_2017,acc_2017,sec_2017,pac12_2017)
+# Getting conferences for each transfer (from and to)
 tran_team <- 
   tibble(
-    player = acc_2017$PLAYER,
-    year = acc_2017$YEAR.1,
-    old_team = acc_2017$OLD.TEAM,
-    new_team = acc_2017$TEAM,
-    grade = acc_2017$YEAR
+    player = tran$PLAYER,
+    year = tran$YEAR.1,
+    old_team = tran$OLD.TEAM,
+    new_team = tran$TEAM,
+    grade = tran$YEAR,
    ) %>% 
   arrange(old_team, year)
-tran_team <- cbind(tran_team, old_conference)
-tran_team <- tran_team %>% 
+
+# Mapping new teams
+tran_team <-  merge(tran_team, cbb_teams, by.x = "old_team", by.y = "Team", all.x = TRUE) 
+tran_team <-  merge(tran_team, cbb_teams, by.x = "new_team", by.y = "Team", all.x = TRUE, no.dups = TRUE) 
+
+# Setting up and arranging new table
+tran_team <- tran_team %>%
+  mutate(old_conference = Conference.x) %>% 
+  mutate(new_conference = Conference.y) %>% 
+  select(player,old_team,old_conference,new_team,new_conference,grade,year) %>%
+  # Used this to search for conferences that didn't match in the mapping file
+  #filter(is.na(old_conference)) %>% 
   arrange(old_conference,old_team,year)
-length(unique(tran_team$old_conference))
-# There are 26 conferences (out of 32 total conferences) that have transferred a total of 84 players into the ACC over the past 5 years, so we're still definitely dealing with a very small sample size throughout...
+# adding in conference ratings
+tran_team$conf_rating <- 
+ifelse (tran_team$old_conference %in% c('ACC','SEC','Pac-12','Big 10','Big 12','Big East'),1,
+  ifelse (tran_team$old_conference %in% c("AAC","MWC","Atlantic 10","WCC","MVC"),2,
+    ifelse (tran_team$old_conference %in% c("MAC","C-USA","SoCon","CAA","Sun Belt","Ivy League"),3,
+      ifelse (tran_team$old_conference %in% c("Summit League","WAC","Horizon","Big West","Big Sky","MAAC","OVC"),4,
+        ifelse (tran_team$old_conference %in% c("Patriot","ASUN","Big South","America East"),5,
+          ifelse (tran_team$old_conference %in% c("Southland","NEC"),6,7)
+        )
+      )
+    )
+  )
+)
 ```
 
