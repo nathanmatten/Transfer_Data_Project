@@ -30,7 +30,9 @@ cbb_teams <- read.csv(file = "cbb_teams.csv", header = T)
 
 ```{r}
 # Making 1 giant transfer file
-tran <- rbind(big10_2017,big12_2017,bigeast_2017,acc_2017,sec_2017,pac12_2017)
+tran <- rbind(big10_2017,big12_2017,bigeast_2017,acc_2017,sec_2017,pac12_2017) %>% 
+  select(-RK,-YEAR.1,-TEAM,-OLD.TEAM,-YEAR) %>% 
+  arrange(PLAYER)
 # Getting conferences for each transfer (from and to)
 tran_team <- 
   tibble(
@@ -67,5 +69,8 @@ ifelse (tran_team$old_conference %in% c('ACC','SEC','Pac-12','Big 10','Big 12','
     )
   )
 )
+# Creating the large table of transfers and their stats based off the two tables (tran and tran_team above)
+transfer <- merge(tran_team, tran, by.y = "PLAYER", by.x = "player", all.x = TRUE) %>% 
+  arrange(old_conference,year,old_team,new_conference,new_team)
 ```
 
