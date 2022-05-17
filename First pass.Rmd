@@ -17,21 +17,32 @@ big10_2017 <- read.csv(file = "Big10_2017_22.csv", header = T)
 bigeast_2017 <- read.csv(file = "BigEast_2017_22.csv", header = T)
 sec_2017 <- read.csv(file = "SEC_2017_22.csv", header = T)
 pac12_2017 <- read.csv(file = "Pac12_2017_22.csv", header = T)
-tran_2015 <- read.csv(file = "trank_data_15.csv", header = F)
-tran_2016 <- read.csv(file = "trank_data_16.csv", header = F)
-tran_2017 <- read.csv(file = "trank_data_17.csv", header = F)
-tran_2018 <- read.csv(file = "trank_data_18.csv", header = F)
-tran_2019 <- read.csv(file = "trank_data_19.csv", header = F)
-tran_2020 <- read.csv(file = "trank_data_20.csv", header = F)
-tran_2021 <- read.csv(file = "trank_data_21.csv", header = F)
-tran_2022 <- read.csv(file = "trank_data_22.csv", header = F)
+tran_2015 <- read.csv(file = "trank_data_15.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2015$player = paste(tran_2015$player_name, "(15)")
+tran_2016 <- read.csv(file = "trank_data_16.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2016$player = paste(tran_2016$player_name, "(16)")
+tran_2017 <- read.csv(file = "trank_data_17.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2017$player = paste(tran_2017$player_name, "(17)")
+tran_2018 <- read.csv(file = "trank_data_18.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2018$player = paste(tran_2018$player_name, "(18)")
+tran_2019 <- read.csv(file = "trank_data_19.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2019$player = paste(tran_2019$player_name, "(19)")
+tran_2020 <- read.csv(file = "trank_data_20.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2020$player = paste(tran_2020$player_name, "(20)")
+tran_2021 <- read.csv(file = "trank_data_21.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2021$player = paste(tran_2021$player_name, "(21)")
+tran_2022 <- read.csv(file = "trank_data_22.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2022$player = paste(tran_2022$player_name, "(22)")
 cbb_teams <- read.csv(file = "cbb_teams.csv", header = T)
+# Creating mega reference table
+tran_stats <- rbind(tran_2015,tran_2016,tran_2017,tran_2018,tran_2019,tran_2020,tran_2021,tran_2022) %>% 
+  select(player,GP,Min_per,ORtg,usg,eFG,TS_per,ORB_per,DRB_per,AST_per,TO_per,FTM,FTA,FT_per,twoPM,twoPA,twoP_per,TPM,TPA,TP_per,blk_per,stl_per,ftr,yr,porpag,pid,BPM)
 ``` 
 
 ```{r}
 # Making 1 giant transfer file
 tran <- rbind(big10_2017,big12_2017,bigeast_2017,acc_2017,sec_2017,pac12_2017) %>% 
-  select(-RK,-YEAR.1,-TEAM,-OLD.TEAM,-YEAR) %>% 
+  select(-RK) %>% 
   arrange(PLAYER)
 # Getting conferences for each transfer (from and to)
 tran_team <- 
@@ -72,5 +83,13 @@ ifelse (tran_team$old_conference %in% c('ACC','SEC','Pac-12','Big 10','Big 12','
 # Creating the large table of transfers and their stats based off the two tables (tran and tran_team above)
 transfer <- merge(tran_team, tran, by.y = "PLAYER", by.x = "player", all.x = TRUE) %>% 
   arrange(old_conference,year,old_team,new_conference,new_team)
+# Middle table to get P-ID to then go back and remap
+t2 <- merge(tran_team, tran_stats, by.x = "player", by.y = "player") %>% 
+  select(player,old_team,old_conference,new_team,new_conference,grade,year,pid) %>% 
+  arrange(pid)
+# Mapping based on P-ID... then creating the mega-table of desired data
+tran_yay <- merge(t2,tran_stats, by.x = "pid", by.y = "pid") %>% 
+  mutate(player = player.x) %>%
+  select(-player.y,-player.x) %>% 
+  arrange(old_conference,year,old_team,new_conference,new_team,player)
 ```
-
