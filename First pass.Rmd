@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(shipunov)
 ```
 
 ```{r}
@@ -36,7 +37,7 @@ tran_2022$player = paste(tran_2022$player_name, "(22)")
 cbb_teams <- read.csv(file = "cbb_teams.csv", header = T)
 # Creating mega reference table
 tran_stats <- rbind(tran_2015,tran_2016,tran_2017,tran_2018,tran_2019,tran_2020,tran_2021,tran_2022) %>% 
-  select(player,GP,Min_per,ORtg,usg,eFG,TS_per,ORB_per,DRB_per,AST_per,TO_per,FTM,FTA,FT_per,twoPM,twoPA,twoP_per,TPM,TPA,TP_per,blk_per,stl_per,ftr,yr,porpag,pid,BPM)
+  select(player,GP,Min_per,ORtg,usg,eFG,TS_per,ORB_per,DRB_per,AST_per,TO_per,FTM,FTA,FT_per,twoPM,twoPA,twoP_per,TPM,TPA,TP_per,blk_per,stl_per,ftr,yr,porpag,pid,BPM,year)
 ``` 
 
 ```{r}
@@ -85,11 +86,32 @@ transfer <- merge(tran_team, tran, by.y = "PLAYER", by.x = "player", all.x = TRU
   arrange(old_conference,year,old_team,new_conference,new_team)
 # Middle table to get P-ID to then go back and remap
 t2 <- merge(tran_team, tran_stats, by.x = "player", by.y = "player") %>% 
-  select(player,old_team,old_conference,new_team,new_conference,grade,year,pid) %>% 
-  arrange(pid)
+  select(player,old_team,old_conference,new_team,new_conference,grade,year.x,pid,conf_rating) %>% 
+  arrange(year.x,pid)
 # Mapping based on P-ID... then creating the mega-table of desired data
 tran_yay <- merge(t2,tran_stats, by.x = "pid", by.y = "pid") %>% 
   mutate(player = player.x) %>%
-  select(-player.y,-player.x) %>% 
-  arrange(old_conference,year,old_team,new_conference,new_team,player)
+  mutate(tran_year = year.x) %>% 
+  select(-player.y,-player.x,-year.x) %>% 
+  arrange(old_conference,old_team,new_conference,new_team,player,year)
+# Figuring out how to only pull the transfer year stats and the previously played year's stats
+#tran_final <- tran_yay %>% 
+#  filter((year == tran_year))# & row((year == tran_year)-1))
 ```
+```{r}
+#Using this as testing ground to get rows needed for data
+rows <- which(tran_yay$year[] == tran_yay$tran_year[])
+nrows <- rows - 1
+frows <- c(rows,nrows)
+tran_final <- tran_yay %>% 
+  filter(row_number() %in% frows) %>% 
+  select(pid,player,year,tran_year,old_conference,old_team,new_conference,new_team,BPM,conf_rating) %>% 
+  arrange(old_conference,old_team,new_conference,new_team,player,year)
+# That seemed to work! Have 877 unique rows now... curious if there was a better way to do it? 
+tran_final$year <- as.numeric(tran_final$year)
+# Now running KNN Bootstrap... let's see how it goes
+tran_sub <- which(tran_final$year != tran_final$tran_year)
+BootKNN(tran_final,classes = c(tran_final$year,tran_final$BPM,tran_final$conf_rating),sub = tran_sub, nboot = 1000, method = "knn")
+```
+
+knn - season before, bpm, conference_rank (maybe position) - have to create the data for season before... might have a bit of an issue there, but gonna try on Sunday night.
