@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(shipunov)
+library(caret)
 ```
 
 ```{r}
@@ -98,6 +99,7 @@ tran_yay <- merge(t2,tran_stats, by.x = "pid", by.y = "pid") %>%
 #tran_final <- tran_yay %>% 
 #  filter((year == tran_year))# & row((year == tran_year)-1))
 ```
+Creating finall tables to use for analysis
 ```{r}
 #Using this as testing ground to get rows needed for data
 rows <- which(tran_yay$year[] == tran_yay$tran_year[])
@@ -105,10 +107,13 @@ nrows <- rows - 1
 frows <- c(rows,nrows)
 tran_final <- tran_yay %>% 
   filter(row_number() %in% frows) %>% 
-  select(pid,player,year,tran_year,old_conference,old_team,new_conference,new_team,BPM,conf_rating) %>% 
+  select(pid,player,year,tran_year,old_conference,old_team,new_conference,new_team,BPM,conf_rating,usg,eFG,Min_per,TS_per,TP_per,blk_per,stl_per) %>% 
   arrange(old_conference,old_team,new_conference,new_team,player,year)
 # That seemed to work! Have 877 unique rows now... curious if there was a better way to do it? 
 tran_final$year <- as.numeric(tran_final$year)
+```
+
+```{r}
 # Now running KNN Bootstrap... let's see how it goes
 tran_sub <- which(tran_final$year != tran_final$tran_year)
 tran_final$BPMbin <- ifelse(tran_final$BPM >= 0, 1, 0)
@@ -117,6 +122,32 @@ boots <- tran_final %>%
 kboots <- BootKNN(boots,classes = tran_final$BPMbin,sub = tran_sub, nboot = 1000, method = "knn")
 ```
 
+```{r}
+# Regular bootstrap
+indexes <- createDataPartition(tran_final$BPMbin, p = .8, list = F)
+
+train <- tran_final[indexes, ]
+test <- tran_final[-indexes, ]
+
+train_x <- train[,c(-2,-5,-6,-7,-8,-18)]
+train_y <- train[,18]
+
+test_x <- test[,c(-2,-5,-6,-7,-8,-18)]
+test_y <- test[,18]
+
+knnmodel1 <- knnreg(train_x, train_y)
+#str(knnmodel1)
+pred_y1 <- predict(knnmodel1, data.frame(test_x))
+mse <- mean((test_y - pred_y1)^2)
+mae <- caret::MAE(test_y,pred_y1)
+rmse <- caret::RMSE(test_y,pred_y1)
+cat("MSE: ", mse, "MAE: ", mae, " RMSE: ", rmse)
+```
+So my biggest question is -- this was not done correctly because the data is paired, but the partition is NOT paired. I'm not sure currently how to better pair it other than making duplicate columns for each player and the different years they played and doing this that way. Will follow up with you tomorrow during our discussion.
+
+
+
 knn - season before, bpm, conference_rank (maybe position) - have to create the data for season before... might have a bit of an issue there, but gonna try on Sunday night.
 
 turn BPM into binary, positive = 1, negative = 0...
+
