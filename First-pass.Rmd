@@ -1,0 +1,476 @@
+---
+title: "Transfer data"
+author: "Nathan Matten"
+date: "3/27/2022"
+output:
+  html_document: 
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    fig_caption: yes
+    fig_width: 6
+    fig_height: 4
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(2141122)
+```
+
+```{r Load Packages, message=FALSE}
+library(tidyverse)
+library(shipunov)
+library(caret)
+library(corrplot)
+```
+
+We're only going to look at players that transfer into the top 6 conferences
+Loading in data
+```{r Load Data, cache=TRUE}
+acc_2017 <- read.csv(file = "ACC_2017_22.csv", header = T)
+big12_2017 <- read.csv(file = "Big12_2017_22.csv", header = T)
+big10_2017 <- read.csv(file = "Big10_2017_22.csv", header = T)
+bigeast_2017 <- read.csv(file = "BigEast_2017_22.csv", header = T)
+sec_2017 <- read.csv(file = "SEC_2017_22.csv", header = T)
+pac12_2017 <- read.csv(file = "Pac12_2017_22.csv", header = T)
+tran_2015 <- read.csv(file = "trank_data_15.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2015$player = paste(tran_2015$player_name, "(15)")
+tran_2016 <- read.csv(file = "trank_data_16.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2016$player = paste(tran_2016$player_name, "(16)")
+tran_2017 <- read.csv(file = "trank_data_17.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2017$player = paste(tran_2017$player_name, "(17)")
+tran_2018 <- read.csv(file = "trank_data_18.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2018$player = paste(tran_2018$player_name, "(18)")
+tran_2019 <- read.csv(file = "trank_data_19.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2019$player = paste(tran_2019$player_name, "(19)")
+tran_2020 <- read.csv(file = "trank_data_20.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2020$player = paste(tran_2020$player_name, "(20)")
+tran_2021 <- read.csv(file = "trank_data_21.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2021$player = paste(tran_2021$player_name, "(21)")
+tran_2022 <- read.csv(file = "trank_data_22.csv", header = F, col.names = c("player_name","team","conf","GP","Min_per","ORtg","usg","eFG","TS_per","ORB_per","DRB_per","AST_per","TO_per","FTM","FTA","FT_per","twoPM","twoPA","twoP_per","TPM","TPA","TP_per","blk_per","stl_per","ftr","yr","ht","num","porpag",NA,NA,"year","pid","type","Rec Rank","ast/tov",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,"BPM",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA))
+tran_2022$player = paste(tran_2022$player_name, "(22)")
+cbb_teams <- read.csv(file = "cbb_teams.csv", header = T)
+# Creating mega reference table
+tran_stats <- rbind(tran_2015,tran_2016,tran_2017,tran_2018,tran_2019,tran_2020,tran_2021,tran_2022) 
+tran_stats <- tran_stats %>%
+  dplyr::select(player,GP,Min_per,ORtg,usg,eFG,TS_per,ORB_per,DRB_per,AST_per,TO_per,FTM,FTA,FT_per,twoPM,twoPA,twoP_per,TPM,TPA,TP_per,blk_per,stl_per,ftr,yr,porpag,pid,BPM,year)
+``` 
+
+```{r Data Wrangling}
+# Making 1 giant transfer file for the big 6 conferences
+tran <- rbind(big10_2017,big12_2017,bigeast_2017,acc_2017,sec_2017,pac12_2017) %>% 
+  dplyr::select(-RK) %>% 
+  arrange(PLAYER)
+# Getting conferences for each transfer (from and to)
+tran_team <- 
+  tibble(
+    player = tran$PLAYER,
+    year = tran$YEAR.1,
+    old_team = tran$OLD.TEAM,
+    new_team = tran$TEAM,
+    grade = tran$YEAR,
+   ) %>% 
+  arrange(old_team, year)
+
+# Mapping new teams
+tran_team <-  merge(tran_team, cbb_teams, by.x = "old_team", by.y = "Team", all.x = TRUE) 
+tran_team <-  merge(tran_team, cbb_teams, by.x = "new_team", by.y = "Team", all.x = TRUE, no.dups = TRUE) 
+
+# Setting up and arranging new table
+tran_team <- tran_team %>%
+  mutate(old_conference = Conference.x) %>% 
+  mutate(new_conference = Conference.y) %>% 
+  dplyr::select(player,old_team,old_conference,new_team,new_conference,grade,year) %>%
+  # Used this to search for conferences that didn't match in the mapping file
+  #filter(is.na(old_conference)) %>% 
+  arrange(old_conference,old_team,year)
+# adding in conference ratings
+tran_team$conf_rating <- 
+ifelse (tran_team$old_conference %in% c('ACC','SEC','Pac-12','Big 10','Big 12','Big East'),1,
+  ifelse (tran_team$old_conference %in% c("AAC","MWC","Atlantic 10","WCC","MVC"),2,
+    ifelse (tran_team$old_conference %in% c("MAC","C-USA","SoCon","CAA","Sun Belt","Ivy League"),3,
+      ifelse (tran_team$old_conference %in% c("Summit League","WAC","Horizon","Big West","Big Sky","MAAC","OVC"),4,
+        ifelse (tran_team$old_conference %in% c("Patriot","ASUN","Big South","America East"),5,
+          ifelse (tran_team$old_conference %in% c("Southland","NEC"),6,7)
+        )
+      )
+    )
+  )
+)
+# Creating the large table of transfers and their stats based off the two tables (tran and tran_team above)
+transfer <- merge(tran_team, tran, by.y = "PLAYER", by.x = "player", all.x = TRUE) %>% 
+  arrange(old_conference,year,old_team,new_conference,new_team)
+# Middle table to get P-ID to then go back and remap
+t2 <- merge(tran_team, tran_stats, by.x = "player", by.y = "player") %>% 
+  dplyr::select(player,old_team,old_conference,new_team,new_conference,grade,year.x,pid,conf_rating) %>% 
+  arrange(year.x,pid)
+# Mapping based on P-ID... then creating the mega-table of desired data
+t3 <- merge(t2,tran_stats, by.x = "pid", by.y = "pid") %>% 
+  mutate(player = player.x) %>%
+  mutate(tran_year = year.x) %>% 
+  dplyr::select(-player.y,-player.x,-year.x) %>% 
+  arrange(old_conference,old_team,new_conference,new_team,player,year)
+# Figuring out how to only pull the transfer year stats and the previously played year's stats
+#tran_final <- tran_yay %>% 
+#  filter((year == tran_year))# & row((year == tran_year)-1))
+```
+Creating final tables to use for analysis
+```{r More Data Wrangling}
+#Using this as testing ground to get rows needed for data
+# Rows from season before transfer
+rows <- which(t3$year[] == t3$tran_year[])
+# Rows from season after transfer
+nrows <- rows - 1
+# Finding all years that contain players that transferred
+frows <- c(rows,nrows)
+# Creating a tibble from data before players transferred
+pre_t <- t3 %>% 
+  filter(row_number() %in% nrows) %>% 
+  dplyr::select(pid,player,year,tran_year,old_conference,old_team,new_conference,new_team,BPM,conf_rating,usg,eFG,Min_per,TS_per,TP_per,blk_per,stl_per) %>% 
+  arrange(old_conference,old_team,new_conference,new_team,player,year)
+# Creating a tibble from data after players transferred, arranged the same as above
+post_t <- t3 %>% 
+  filter(row_number() %in% rows) %>% 
+  dplyr::select(pid,player,year,tran_year,old_conference,old_team,new_conference,new_team,BPM,conf_rating,usg,eFG,Min_per,TS_per,TP_per,blk_per,stl_per) %>% 
+  rename(BPM2 = BPM,
+         conf_rating2 = conf_rating,
+         usg2 = usg,
+         eFG2 = eFG,
+         Min_per2 = Min_per,
+         TS_per2 = TS_per,
+         TP_per2 = TP_per,
+         blk_per2 = blk_per,
+         stl_per2 = stl_per) %>% 
+  arrange(old_conference,old_team,new_conference,new_team,player,year)
+# Combining data based on row, so we can do further analysis (as needed)
+tran_final <- cbind(pre_t, post_t)
+# Creating a binary value whether a player is BPM positive or negative each year
+tran_final$BPMbin <- ifelse(tran_final$BPM >= 0, 1, 0)
+tran_final$BPMbin2 <- ifelse(tran_final$BPM2 >= 0, 1, 0)
+tran_final$year <- as.numeric(tran_final$year)
+```
+
+```{r}
+# Now running KNN Bootstrap... let's see how it goes
+#tran_sub <- which(tran_final$year != tran_final$tran_year)
+#boots <- tran_final %>% 
+#dplyr::select(year,BPMbin,conf_rating)
+#kboots <- BootKNN(boots,classes = tran_final$BPMbin,sub = tran_sub, nboot = 1000, method = "knn")
+```
+
+
+```{r Original Binary KNN Regression}
+library(MASS)
+library(xgboost)
+# Regular bootstrap
+indexes <- createDataPartition(tran_final$BPM2, p = .8, list = F)
+
+train <- tran_final[indexes, ]
+test <- tran_final[-indexes, ]
+
+train_x <- train[,c(-2,-5,-6,-7,-8,-18,-19,-21,-22,-23,-24,-25,-36)]
+train_y <- train[,36]
+
+test_x <- test[,c(-2,-5,-6,-7,-8,-18,-19,-21,-22,-23,-24,-25,-36)]
+test_y <- test[,36]
+
+knnmodel1 <- knnreg(train_x, train_y)
+#str(knnmodel1)
+pred_y1 <- predict(knnmodel1, data.frame(test_x))
+mse <- mean((test_y - pred_y1)^2)
+mae <- caret::MAE(test_y,pred_y1)
+rmse <- caret::RMSE(test_y,pred_y1)
+cat("KNN Model 1: BPM Prediction","MSE: ", mse, "MAE: ", mae, " RMSE: ", rmse)
+```
+This is from determined based on ALL the data... we'll do additional tests based on future relevant data... for the sake of simplicity, we will use the same partition regarding BPM testing from the previous season
+
+Test without binary...
+
+```{r Second KNN Reg model with fewer parameters}
+# This model uses Year (Pre-transfer year), transfer year, conference rating (old), conf_rating2 (post-transfer), and BPM binary before transfer, to predict BPM binary for the season after transfer  
+train_x2 <- train[,c(3,4,10,27,35)]
+train_y2 <- train[,36]
+
+test_x2 <- test[,c(3,4,10,27,35)]
+test_y2 <- test[,36]
+
+knnmodel11 <- knnreg(train_x2, train_y2)
+pred_y11 <- predict(knnmodel11, data.frame(test_x2))
+mse11 <- mean((test_y2 - pred_y11)^2)
+mae11 <- caret::MAE(test_y2,pred_y11)
+rmse11 <- caret::RMSE(test_y2,pred_y11)
+cat("KNN Model 2: BPM Prediction","MSE: ", mse11, "MAE: ", mae11, " RMSE: ", rmse11)
+```
+
+Are there other models to consider? What would be the best way to do model selection here? 
+
+```{r Finding optimal K with 9 parameters}
+# Creating data sets with only the required values
+train_stats <- train[,c(9:17)]
+test_stats_x <- test[,c(9:17)]
+train_y_k <- train[,26]
+test_y_k <- test[,26]
+output <- data.frame(matrix(ncol=4,nrow=19))
+colnames(output) <- c('MSE','MAE','RMSE','k')
+# for loop to print knnreg results based on k=2:10
+for (i in 2:20){
+  knnmodel = knnreg(train_stats,train_y_k,k=i)
+  #cat(knnmodel,i)
+  pred_y <- predict(knnmodel, data.frame(test_stats_x))
+  #cat(pred_y,i)
+  output[i-1,4] <- i
+  output[i-1,1] <- mean((test_y_k - pred_y)^2)
+  output[i-1,2] <- caret::MAE(test_y_k,pred_y)
+  output[i-1,3] <- caret::RMSE(test_y_k,pred_y)
+  cat("KNN Model", i, ": BPM Prediction","MSE: ", output[i-1,1], "MAE: ", output[i-1,2], " RMSE: ", output[i-1,3], '\n')
+}
+ggplot(data = output) +
+  geom_point(aes(x = k, y= RMSE), color = 'red', show.legend = FALSE) + 
+  geom_point(aes(x = k, y = MSE), color = 'blue', show.legend = FALSE) + 
+  geom_point(aes(x = k, y = MAE), color = 'green', show.legend = FALSE) +
+  xlab("k") +
+  ylab("Error")
+mins <- apply(output[,1:3], 2, min)
+mins
+which(output[,1] == mins[1])
+which(output[,2] == mins[2])
+which(output[,3] == mins[3])
+# optimal k here is 5 or 6... let's see what it is when we change the number of variables
+```
+
+```{r Finding optimal K with 3 parameters}
+# Creating data sets with only the required values
+train_stats_2 <- train[,c(9,14,16)]
+test_stats_x2 <- test[,c(9,14,16)]
+output2 <- data.frame(matrix(ncol=4,nrow=19))
+colnames(output2) <- c('MSE','MAE','RMSE','k')
+# for loop to print knnreg results based on k=2:10
+for (i in 2:20){
+  knnmodel = knnreg(train_stats_2,train_y_k,k=i)
+  #cat(knnmodel,i)
+  pred_y <- predict(knnmodel, data.frame(test_stats_x2))
+  #cat(pred_y,i)
+  output2[i-1,4] <- i
+  output2[i-1,1] <- mean((test_y_k - pred_y)^2)
+  output2[i-1,2] <- caret::MAE(test_y_k,pred_y)
+  output2[i-1,3] <- caret::RMSE(test_y_k,pred_y)
+  cat("KNN Model", i, ": BPM Prediction","MSE: ", output2[i-1,1], "MAE: ", output2[i-1,2], " RMSE: ", output2[i-1,3], '\n')
+}
+ggplot(data = output2) +
+  geom_point(aes(x = k, y= RMSE), color = 'red', show.legend = FALSE) + 
+  geom_point(aes(x = k, y = MSE), color = 'blue', show.legend = FALSE) + 
+  geom_point(aes(x = k, y = MAE), color = 'green', show.legend = FALSE) +
+  xlab("k") +
+  ylab("Error")
+mins2 <- apply(output2[,1:3], 2, min)
+which(output2[,1] == mins2[1])
+which(output2[,2] == mins2[2])
+which(output2[,3] == mins2[3])
+# optimal k here is 16... which seems high for a knn analysis
+```
+
+
+```{r Checking Correlation and model selection}
+corData <- tran_final[,c(9:17,26,35:36)]
+corrplot(cor(corData[,c(1:9)]))
+# Based on the correlation heatmap, eFG and TS_per are highly correlated, so we should take out one of them (eFG in this instance). Also removing conf_rating2 because they should all be 1... not sure why I haven't removed it previously
+# For regular regression, we should "lose" the binary values... and just use the continuous values of BPM
+dat1 <- corData[,c(-4,-11,-12)]
+corrplot(cor(dat1[,1:8]))
+full.fit <- lm(BPM2 ~ ., data = dat1)
+summary(full.fit)
+step.AIC <- stepAIC(full.fit, direction = 'both', k =2)
+
+alpha.1 <- 0.1
+alpha.2 <- 0.15
+step.wise <- olsrr::ols_step_both_p(full.fit, pent = alpha.1, prem = alpha.2)
+
+step.wise$predictors  #No indus, exactly as we would expect
+mod2 <- lm(BPM2 ~ BPM + blk_per + TS_per, data = dat1)
+AIC(mod2)
+mod3 <- lm(BPM2 ~ BPM + usg + TS_per + blk_per + stl_per, data = dat1)
+AIC(mod3)
+mod4 <- lm(BPM2 ~ BPM + TS_per + blk_per + stl_per, data = dat1)
+AIC(mod4)
+
+cat(" 3 Variables (BPM, blk_per, TS_per):",'\t\t', AIC(mod2), '\n', "5 variables (including usg and stl_per):",'\t', AIC(mod3), '\n', "4 variables (including stl_per):",'\t\t', AIC(mod4))
+```
+
+
+```{r Finding optimal parameters/variables}
+Best.subset <- olsrr::ols_step_best_subset(full.fit)
+which.max(Best.subset$rsquare)
+which.max(Best.subset$adjr)
+predictors.include <- strsplit(Best.subset$predictors[which.max(Best.subset$adjr)], "[ ]+", perl=T)[[1]]
+which.min(Best.subset$aic)
+aic.include <- strsplit(Best.subset$predictors[which.min(Best.subset$aic)], "[ ]+", perl=T)[[1]]
+colnames(dat1)[!(colnames(dat1)%in%predictors.include)]  #Which is left out?
+colnames(dat1)[!(colnames(dat1)%in%aic.include)]  #Which is left out?
+
+alpha.3 <- 0.1
+backward.1 <- olsrr::ols_step_backward_p(full.fit, penter = alpha.3)
+backward.1$removed    #Model contains all covariates, except for indus.
+```
+
+```{r}
+# Logistic regression variable selection
+l_data <- tran_final[,c(10:17,35,36)]
+full.log.model <- glm(BPMbin2 ~ ., data = l_data, family = binomial)
+step.log.model <- full.log.model %>% stepAIC(trace = FALSE)
+coef(step.log.model)
+```
+Super interesting -- based on the above stepwise selection, the only 2 variables that are predictors to whether a player has a positive or negative BPM after transfer is based on the previous year and their blocks per game... curious why.
+```{r}
+# Creating data sets with only the required values
+train_stats_3 <- train[,c(26,35)]
+test_stats_x3 <- test[,c(16,35)]
+output3 <- data.frame(matrix(ncol=4,nrow=19))
+colnames(output3) <- c('MSE','MAE','RMSE','k')
+# for loop to print knnreg results based on k=2:20
+for (i in 2:20){
+  knnmodel = knnreg(train_stats_3,train_y,k=i)
+  #cat(knnmodel,i)
+  pred_y <- predict(knnmodel, data.frame(test_stats_x3))
+  #cat(pred_y,i)
+  output3[i-1,4] <- i
+  output3[i-1,1] <- mean((test_y - pred_y)^2)
+  output3[i-1,2] <- caret::MAE(test_y,pred_y)
+  output3[i-1,3] <- caret::RMSE(test_y,pred_y)
+  cat("KNN Model", i, ": BPM Prediction","MSE: ", output3[i-1,1], "MAE: ", output3[i-1,2], " RMSE: ", output3[i-1,3], '\n')
+}
+ggplot(data = output3) +
+  geom_point(aes(x = k, y= RMSE), color = 'red', show.legend = FALSE) + 
+  geom_point(aes(x = k, y = MSE), color = 'blue', show.legend = FALSE) + 
+  geom_point(aes(x = k, y = MAE), color = 'green', show.legend = FALSE) +
+  xlab("k") +
+  ylab("Error")
+mins3 <- apply(output3[,1:3], 2, min)
+which(output3[,1] == mins3[1])
+which(output3[,2] == mins3[2])
+which(output3[,3] == mins3[3])
+# optimal k here is 3 or 14... which seems either high or low (although 3 is closer within the realm or normal) for a knn analysis
+```
+
+We will now try LOOCV
+```{r}
+ctrl <- trainControl(method = "LOOCV")
+mod_loocv <- train(BPM2 ~ BPM + blk_per + TS_per, data = dat1, method = "lm", trControl = ctrl)
+```
+The results of LOOCV have `r mod_loocv$results[c(2,4)]` as the RMSE and MAE, respectively, while the original minimum RMSE and MAE from our K-selection (k = [2,20]) is `r mins2[c(3,2)]`. The differences between them is `r mins2[c(3,2)] - mod_loocv$results[c(2,4)]`, which is an improvement on our KNN estimation.
+
+```{r Leave one out}
+# Create full data set with just the 4 variables of interest
+# Set up response dataframe/vector
+# Loop through length of 4 variable dataframe with each time having 1 row be the testing set and the rest be the training set
+  # Run KNN-Regression on each train set
+  # Predict test set (of 1 row)
+# Log response of prediction value and test_y in the response dataframe
+# Graph response dataframe after loop
+# Graph the difference between pred_y and test_y (hopefully should be normal?)
+
+tran_loo <- tran_final[,c(9,14,16,26)]
+response_loo <- data.frame(matrix(ncol=4))
+colnames(response_loo) <- c('ID','BPM2','Pred_BPM2','BPM2_diff')
+for (i in 1:nrow(tran_loo)){
+  train_loo <- tran_loo[-i,]
+  #train_loo_y <- tran_loo[-i,4]
+  test_loo <- tran_loo[i,c(1:3)]
+  test_loo_y <- tran_loo[i,4]
+  lmmodel = lm(BPM2 ~ BPM + TS_per + blk_per, data = tran_loo)
+  pred_y <- predict(lmmodel, data.frame(test_loo))
+  response_loo[i,3] <- pred_y
+  response_loo[i,2] <- test_loo_y
+  response_loo[i,1] <- i
+  response_loo[i,4] <- test_loo_y - pred_y
+}
+plots <- response_loo %>% 
+  arrange(BPM2_diff) %>% 
+  ggplot() +
+  geom_point(aes(x= BPM2_diff, y= BPM2_diff, color = 'BPM2_diff')) +
+  geom_point(aes(x= BPM2, y= BPM2_diff, color = 'BPM2')) + 
+  geom_point(aes(x= Pred_BPM2, y= BPM2_diff, color = 'Pred_BPM2'))
+plots2 <- response_loo %>% 
+  arrange(BPM2_diff) %>% 
+  ggplot() +
+  geom_point(aes(x= ID, y= BPM2_diff, color = 'BPM2_diff')) +
+  geom_point(aes(x= ID, y= BPM2, color = 'BPM2')) + 
+  geom_point(aes(x= ID, y= Pred_BPM2, color = 'Pred_BPM2'))
+RMSE_loo <- caret::RMSE(response_loo$BPM2,response_loo$Pred_BPM2)
+```
+The plot for predicted BPM value after transfer compared to the actual BPM value in the season after transfer can be seen below: 
+```{r}
+plots
+```
+
+```{r Leave one out KNN}
+# Create full data set with just the 4 variables of interest
+# Set up response dataframe/vector
+# Loop through length of 4 variable dataframe with each time having 1 row be the testing set and the rest be the training set
+  # Run KNN-Regression on each train set
+  # Predict test set (of 1 row)
+# Log response of prediction value and test_y in the response dataframe
+# Graph response dataframe after loop
+# Graph the difference between pred_y and test_y (hopefully should be normal?)
+
+tran_loo_k <- tran_final[,c(9,14,16,26)]
+response_loo_k <- data.frame(matrix(ncol=4))
+colnames(response_loo_k) <- c('ID','BPM2','Pred_BPM2','BPM2_diff')
+for (i in 1:nrow(tran_loo_k)){
+  train_loo_k <- tran_loo_k[-i,c(1:3)]
+  train_loo_yk <- tran_loo_k[-i,4]
+  test_loo_k <- tran_loo_k[i,c(1:3)]
+  test_loo_yk <- tran_loo_k[i,4]
+  knn_loo <- knnreg(train_loo_k,train_loo_yk,k=11)
+  pred_yk <- predict(knn_loo, test_loo_k)
+  response_loo_k[i,3] <- pred_yk
+  response_loo_k[i,2] <- test_loo_yk
+  response_loo_k[i,1] <- i
+  response_loo_k[i,4] <- test_loo_yk - pred_yk
+}
+plots_k <- response_loo_k %>% 
+  arrange(BPM2_diff) %>% 
+  ggplot() +
+  geom_point(aes(x= BPM2_diff, y= BPM2_diff, color = 'BPM2_diff')) +
+  geom_point(aes(x= BPM2, y= BPM2_diff, color = 'BPM2')) + 
+  geom_point(aes(x= Pred_BPM2, y= BPM2_diff, color = 'Pred_BPM2'))
+plots2 <- response_loo_k %>% 
+  arrange(BPM2_diff) %>% 
+  ggplot() +
+  geom_point(aes(x= ID, y= BPM2_diff, color = 'BPM2_diff')) +
+  geom_point(aes(x= ID, y= BPM2, color = 'BPM2')) + 
+  geom_point(aes(x= ID, y= Pred_BPM2, color = 'Pred_BPM2'))
+RMSE_loo_k <- caret::RMSE(response_loo_k$BPM2,response_loo_k$Pred_BPM2)
+```
+The plot for predicted BPM value after transfer compared to the actual BPM value in the season after transfer can be seen below: 
+```{r}
+plots2
+```
+
+The results of the self-implemented LOO have `r RMSE_loo` as the RMSE, the original minimum RMSE from our K-selection (k = [2,20]) is `r mins2[3]`, and the RMSE from LOOCV implemented above is `r mod_loocv$results[c(2)]`. The differences between the three samples are `r mins2[3] - RMSE_loo` and `r RMSE_loo - mod_loocv$results[2]`, respectively for the two other estimates. The self implemented LOO has the best RMSE, followed by LOOCV, finally concluded with the minimum of our KNN selections. 
+
+```{r message=FALSE, results='hide', warning=FALSE}
+train = data.matrix(train_stats)
+test = data.matrix(test_stats_x)
+xgb_train = xgb.DMatrix(data = as.matrix(train_stats), label = train_y_k)
+xgb_test = xgb.DMatrix(data = as.matrix(test_stats_x), label = test_y_k)
+xgbc = xgboost(data = xgb_train, max.depth = 2, nrounds = 50)
+pred_yx = predict(xgbc, xgb_test)
+msex = mean((test_y_k - pred_yx)^2)
+maex = caret::MAE(test_y_k, pred_yx)
+rmsex = caret::RMSE(test_y_k, pred_yx)
+```
+
+```{r}
+print(xgbc)
+```
+
+The values from Extreme Gradient Boosting are:  
+MSE: `r msex` MAE: `r maex` RMSE: `r rmsex`   
+The RMSE from LOOCV is: `r mod_loocv$results[2]`   
+The RMSE from self-implemented LOO is: `r RMSE_loo`  
+The RMSE from self-implemented LOO KNN is: `r RMSE_loo_k`  
+THE RMSE from KNN regression with k=11 is: `r output2[10,3]`  
+The best RMSE is self-implemented LOO based on these choices

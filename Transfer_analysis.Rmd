@@ -29,6 +29,7 @@ library(corrplot)
 
 # Data Loading and Wrangling
 ## Data Loading
+### Transfer Players dataframe
 ```{r Data Loading, cache = TRUE}
 transfer_players <- transfer_portal(year = 2017) %>% 
   rbind(transfer_portal(year = 2018)) %>% 
@@ -39,6 +40,9 @@ transfer_players <- transfer_portal(year = 2017) %>%
   select(-source) %>% 
   filter(from_d1 == TRUE, to_d1 == TRUE)
 # Removed players that transferred to and from outside D1 -- I don't believe they're part of our study currently (but they can definitely be added back in)... although this removes about 900 player transfers
+```
+### Player stats dataframe
+```{r Player Stats, cache = TRUE}
 player_stats <- bart_player_season(year = 2017, stat = 'all') %>%   rbind(bart_player_season(year = 2018, stat = 'all')) %>%
   rbind(bart_player_season(year = 2019, stat = 'all')) %>%
   rbind(bart_player_season(year = 2020, stat = 'all')) %>%
@@ -46,6 +50,9 @@ player_stats <- bart_player_season(year = 2017, stat = 'all') %>%   rbind(bart_p
   rbind(bart_player_season(year = 2022, stat = 'all')) %>% 
   rbind(bart_player_season(year = 2016, stat = 'all')) %>% 
   rbind(bart_player_season(year = 2015, stat = 'all'))
+```
+### Conference Ratings Dataframe
+```{r Conference Ratings, cache = TRUE}
 conf_ratings <- read.csv(file = "~/Documents/GitHub/Transfer_Data_Pitt/kenpom_ratings_16_22.csv")
 colnames(conf_ratings) <- c("Conference","2016","2017","2018","2019","2020","2021","2022")
 conf_ratings$Conference[conf_ratings$Conference == "Horizon"] <- "Horz" 
@@ -69,7 +76,6 @@ conf_ratings$Conference[conf_ratings$Conference == "Ohio Valley"] <- "OVC"
 conf_ratings$Conference[conf_ratings$Conference == "Pac 12"] <- "P12"
 conf_ratings$Conference[conf_ratings$Conference == "AAC"] <- "Amer"
 conferences <- conf_ratings
-#conf_ratings <- t(conf_ratings)
 conf_ratings <- as.data.frame(t(conf_ratings))
 colnames(conf_ratings) <- conf_ratings[1,]
 conf_ratings <-  conf_ratings[c(-1),]
@@ -79,6 +85,7 @@ conf_ratings <- apply(conf_ratings, 2, as.numeric) %>%
 ```
 
 ## Data Wrangling/Merging
+### Data Set for transferred players
 ```{r Data Wrangling/Merging}
 player_stats <- player_stats %>% 
   dplyr::select(id,player,team,conf,g,year,usg,ortg,efg,ts,ftm,fta,ft_pct,two_m,two_a,two_pct,three_m,three_a,three_pct,oreb_rate,dreb_rate,bpm,ast,ast_to,to,blk,stl)
@@ -117,18 +124,27 @@ temp.1 <- merge(transfer_players,player_stats, by.x = "id", by.y = "id", all.x =
 temp2 <- rbind(temp,temp_1,temp_2,temp.1) %>% 
   arrange(id, old_conf, year.x, year.y, new_conf)
 temp_post <- temp2 %>% 
-  filter(to.x == team)
+  group_by(id) %>%
+  arrange(id, desc(year.y)) %>% 
+  filter(to.x == team) %>% 
+  slice(1) %>% 
+  ungroup()
 temp_pre <- temp2 %>% 
   group_by(id) %>%
   arrange(id, desc(year.y)) %>% 
   filter(to.x != team) %>% 
   slice(1) %>% 
   ungroup()
-temp2 <- rbind(temp_pre,temp_post)
 diff1 <- setdiff(temp_pre$id,temp_post$id)
 diff2 <- setdiff(temp_post$id, temp_pre$id)
 missing <- rbind(transfer_players[transfer_players$id %in% diff1,],transfer_players[transfer_players$id %in% diff2,])
 missing <-  (missing$id)
-
+for (i in 1:length(missing)){
+  temp_pre <- subset(temp_pre, temp_pre$id != missing[i])
+  temp_post <- subset(temp_post, temp_post$id != missing[i])
+}
+temp2 <- cbind(temp_pre,temp_post)
+diff3 <- setdiff(transfer_players$id,temp2$id)
+length(diff3)
 ```
 
