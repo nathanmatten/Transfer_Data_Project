@@ -148,3 +148,38 @@ diff3 <- setdiff(transfer_players$id,temp2$id)
 length(diff3)
 ```
 
+```{r Final Data Set}
+#Creating final dataset
+transfer_stats <- temp2[,c(1:9,11:18,28:35,46:49,65)]
+colnames(transfer_stats) <- c("id","player","tran_year","from_uni","old_conf","to_uni","new_conf","imm_elig","sit","team","conf","g","from_year","usg","ortg","efg","ts","oreb_rate","dreb_rate","bpm","ast_rate","ast_to","to_rate","blk_rate","stl_rate","new_team","conf2","g2","a_year","bpm2")
+transfer_stats <- transfer_stats %>%  filter(from_year != 2015)
+# Retrieving conference differences (multiple steps)
+# 1: Getting old conference kenpom rating
+transfer_stats <- merge(transfer_stats, conferences, by.x = "old_conf", by.y = "Conference", all.x = TRUE, all.y = FALSE)
+temp4 <- transfer_stats[,c(3,13,31:37)]
+temp_col <- temp4$from_year
+for(i in 1:length(temp_col)){
+    temp_col[i] <- temp4[1,grepl(temp_col[i], colnames(temp4))]
+}
+ratings <- matrix()
+ratings$ratings_old <- temp_col
+# 2: Getting new conference kenpom rating
+transfer_stats <- transfer_stats[,c(1:30)] 
+transfer_stats <-  merge(transfer_stats, conferences, by.x = "conf2", by.y = "Conference", all.x = TRUE, all.y = FALSE)
+temp5 <- transfer_stats[,c(29,31:37)]
+temp_col <- temp5$a_year
+for(i in 1:length(temp_col)){
+    temp_col[i] <- temp5[1,grepl(temp_col[i], colnames(temp5))]
+}
+ratings$ratings_new <- temp_col
+remove(temp4)
+remove(temp5)
+ratings <- ratings[-1]
+# 3: Getting difference from new conference to old conference and adding to dataset
+ratings$diff <- ratings$ratings_new - ratings$ratings_old
+transfer_stats <- transfer_stats[,c(1:30)] 
+transfer_stats$conf_diff <- ratings$diff
+# Final dataset with only number values
+final_stats <- transfer_stats[,c(13,15:26,30,31)]
+```
+
