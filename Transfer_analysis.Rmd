@@ -75,13 +75,6 @@ conf_ratings$Conference[conf_ratings$Conference == "ASUN"] <- "ASun"
 conf_ratings$Conference[conf_ratings$Conference == "Ohio Valley"] <- "OVC"
 conf_ratings$Conference[conf_ratings$Conference == "Pac 12"] <- "P12"
 conf_ratings$Conference[conf_ratings$Conference == "AAC"] <- "Amer"
-conferences <- conf_ratings
-conf_ratings <- as.data.frame(t(conf_ratings))
-colnames(conf_ratings) <- conf_ratings[1,]
-conf_ratings <-  conf_ratings[c(-1),]
-rownames(conf_ratings) <- c(2016:2022,"Average")
-conf_ratings <- apply(conf_ratings, 2, as.numeric) %>% 
-  as.data.frame(conf_ratings) 
 ```
 
 ## Data Wrangling/Merging
@@ -146,16 +139,17 @@ for (i in 1:length(missing)){
 temp2 <- cbind(temp_pre,temp_post)
 diff3 <- setdiff(transfer_players$id,temp2$id)
 length(diff3)
+master <- temp2
 ```
-
+### Final Data Set
 ```{r Final Data Set}
 #Creating final dataset
-transfer_stats <- temp2[,c(1:9,11:18,28:35,46:49,65)]
+transfer_stats <- master[,c(1:9,11:18,28:35,46:49,65)]
 colnames(transfer_stats) <- c("id","player","tran_year","from_uni","old_conf","to_uni","new_conf","imm_elig","sit","team","conf","g","from_year","usg","ortg","efg","ts","oreb_rate","dreb_rate","bpm","ast_rate","ast_to","to_rate","blk_rate","stl_rate","new_team","conf2","g2","a_year","bpm2")
 transfer_stats <- transfer_stats %>%  filter(from_year != 2015)
 # Retrieving conference differences (multiple steps)
 # 1: Getting old conference kenpom rating
-transfer_stats <- merge(transfer_stats, conferences, by.x = "old_conf", by.y = "Conference", all.x = TRUE, all.y = FALSE)
+transfer_stats <- merge(transfer_stats, conf_ratings, by.x = "old_conf", by.y = "Conference", all.x = TRUE, all.y = FALSE)
 temp4 <- transfer_stats[,c(3,13,31:37)]
 temp_col <- temp4$from_year
 for(i in 1:length(temp_col)){
@@ -165,7 +159,7 @@ ratings <- matrix()
 ratings$ratings_old <- temp_col
 # 2: Getting new conference kenpom rating
 transfer_stats <- transfer_stats[,c(1:30)] 
-transfer_stats <-  merge(transfer_stats, conferences, by.x = "conf2", by.y = "Conference", all.x = TRUE, all.y = FALSE)
+transfer_stats <-  merge(transfer_stats, conf_ratings, by.x = "conf2", by.y = "Conference", all.x = TRUE, all.y = FALSE)
 temp5 <- transfer_stats[,c(29,31:37)]
 temp_col <- temp5$a_year
 for(i in 1:length(temp_col)){
@@ -176,10 +170,91 @@ remove(temp4)
 remove(temp5)
 ratings <- ratings[-1]
 # 3: Getting difference from new conference to old conference and adding to dataset
-ratings$diff <- ratings$ratings_new - ratings$ratings_old
+ratings$diff <- ratings$ratings_old - ratings$ratings_new
 transfer_stats <- transfer_stats[,c(1:30)] 
 transfer_stats$conf_diff <- ratings$diff
 # Final dataset with only number values
-final_stats <- transfer_stats[,c(13,15:26,30,31)]
+final_stats <- transfer_stats[,c(13,15:22,24:26,30,31,1:3)]
+```
+# Analysis
+## Model Selection
+### Correlation
+```{r Correlation}
+corrplot(cor(final_stats[,c(1:12,14)]))
+# It appears that TS, eFg, and ortg are all highly correlated (as expected), and we should remove all but 1 of them. I believe we should either use TS or ortg, but it looks like ortg is negatively related to to_rate, so let's go with TS%
+corrplot(cor(final_stats[,c(1,2,5:12,14)]))
+# TS and BPM are both still related, but I think it's small enough that we can move forward with additional selection
+```
+### AIC Predictor selection
+```{r AIC Predictors, cache=FALSE}
+library(MASS)
+dat_reg <- final_stats %>% dplyr::select(g,usg,ts,oreb_rate,dreb_rate,bpm,ast_rate,to_rate,blk_rate,stl_rate,bpm2,conf_diff)
+indexes <- createDataPartition(dat_reg$bpm2, p = .8, list = F)
+train <- dat_reg[indexes, ]
+test <- dat_reg[-indexes, ]
+
+train_x <- train[,c(1,2,3,6)]
+train_y <- train[,11]
+
+test_x <- test[,c(1,2,3,6)]
+test_y <- test[,11]
+
+full.fit <- lm(bpm2 ~ ., data = dat_reg)
+base.fit <- lm(bpm2 ~ 1, data=dat_reg)
+summary(full.fit)
+# Just based on full fit, it appears, that the variables we should keep are g, usg, ts, bpm, and maybe stl_rate...
+fit.aic <- stepAIC(base.fit, direction = 'both', scope = list(upper = full.fit, lower = base.fit))
+# It appears that AIC fit has the same 5 predictors mentioned above...
+# We can also add dreb_rate... but it would appear that conf_diff is not significant regardless
+mod1 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate, data = dat_reg)
+mod2 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate, data = dat_reg)
+mod3 <- lm(bpm2 ~ bpm + g + usg + ts, data = dat_reg)
+mod4 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate, data = dat_reg)
+mod5 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate, data = dat_reg)
+AIC(mod1,mod2,mod3,mod4,mod5)
+# The AIC is really high regardless, but mod2 and 3 are the best... I think mod3 is the best option for now
+```
+### KNN Choose k
+```{r choose k}
+# Now choose k
+output <- data.frame(matrix(ncol=4,nrow=19))
+colnames(output) <- c('MSE','MAE','RMSE','k')
+# for loop to print knnreg results based on k=2:10
+for (i in 2:20){
+  knnmodel = knnreg(train_x,train_y,k=i)
+  #cat(knnmodel,i)
+  pred_y <- predict(knnmodel, data.frame(test_x))
+  #cat(pred_y,i)
+  output[i-1,4] <- i
+  output[i-1,1] <- mean((test_y - pred_y)^2)
+  output[i-1,2] <- caret::MAE(test_y,pred_y)
+  output[i-1,3] <- caret::RMSE(test_y,pred_y)
+  cat("KNN Model", i, ": BPM Prediction","MSE: ", output[i-1,1], "MAE: ", output[i-1,2], " RMSE: ", output[i-1,3], '\n')
+}
+p_mse_1 <- ggplot(data = output) +
+  geom_point(aes(x = k, y = MSE), color = 'blue', show.legend = FALSE) + 
+  xlab("k") +
+  ylab("Error")
+p_rmse_1 <- ggplot(data = output) +
+  geom_point(aes(x = k, y= RMSE), color = 'red', show.legend = FALSE) + 
+  xlab("k") +
+  ylab("Error")
+p_mae_1 <- ggplot(data = output) +
+  geom_point(aes(x = k, y = MAE), color = 'green', show.legend = FALSE) +
+  xlab("k") +
+  ylab("Error")
+mins <- apply(output[,1:3], 2, min)
+which(output[,1] == mins[1])
+which(output[,2] == mins[2])
+which(output[,3] == mins[3])
+# Looks like k = 19 is the best... but that seems a bit high... 
+# k = 9 or k = 11 are local mins, so let's use one of those in additional analysis
+library(gridExtra)
+grid.arrange(p_mse_1,p_rmse_1,p_mae_1, nrow = 3)
+```
+### LOOCV
+```{r}
+ctrl <- trainControl(method = "LOOCV")
+mod_loocv <- train(bpm2 ~ bpm + g + usg + ts, data = dat_reg, method = "lm", trControl = ctrl)
 ```
 
