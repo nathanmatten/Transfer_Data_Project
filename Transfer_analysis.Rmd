@@ -30,6 +30,7 @@ library(corrplot)
 # Data Loading and Wrangling
 ## Data Loading
 ### Transfer Players dataframe
+The code below creates the transfer_players dataset, as well as removes the players that transferred to and from outside d1
 ```{r Data Loading, cache = TRUE}
 transfer_players <- transfer_portal(year = 2017) %>% 
   rbind(transfer_portal(year = 2018)) %>% 
@@ -42,8 +43,10 @@ transfer_players <- transfer_portal(year = 2017) %>%
 # Removed players that transferred to and from outside D1 -- I don't believe they're part of our study currently (but they can definitely be added back in)... although this removes about 900 player transfers
 ```
 ### Player stats dataframe
+We now create a giant player_stats table with all players from seasons 2015 through 2022
 ```{r Player Stats, cache = TRUE}
-player_stats <- bart_player_season(year = 2017, stat = 'all') %>%   rbind(bart_player_season(year = 2018, stat = 'all')) %>%
+player_stats <- bart_player_season(year = 2017, stat = 'all') %>%   
+  rbind(bart_player_season(year = 2018, stat = 'all')) %>%
   rbind(bart_player_season(year = 2019, stat = 'all')) %>%
   rbind(bart_player_season(year = 2020, stat = 'all')) %>%
   rbind(bart_player_season(year = 2021, stat = 'all')) %>%
@@ -52,6 +55,7 @@ player_stats <- bart_player_season(year = 2017, stat = 'all') %>%   rbind(bart_p
   rbind(bart_player_season(year = 2015, stat = 'all'))
 ```
 ### Conference Ratings Dataframe
+In order to calculate the conf_diff stat, we need a dataframe with the conference ratings. That is created below.
 ```{r Conference Ratings, cache = TRUE}
 conf_ratings <- read.csv(file = "~/Documents/GitHub/Transfer_Data_Pitt/kenpom_ratings_16_22.csv")
 colnames(conf_ratings) <- c("Conference","2016","2017","2018","2019","2020","2021","2022")
@@ -79,7 +83,8 @@ conf_ratings$Conference[conf_ratings$Conference == "AAC"] <- "Amer"
 
 ## Data Wrangling/Merging
 ### Data Set for transferred players
-```{r Data Wrangling/Merging}
+Working through merging tables to create a master table with all stats for transfer players from the season before they transferred to the season after transfer.
+```{r Data Wrangling/Merging, cache=TRUE}
 player_stats <- player_stats %>% 
   dplyr::select(id,player,team,conf,g,year,usg,ortg,efg,ts,ftm,fta,ft_pct,two_m,two_a,two_pct,three_m,three_a,three_pct,oreb_rate,dreb_rate,bpm,ast,ast_to,to,blk,stl)
 team_mapping <- unique(player_stats[,c("team", "conf")]) %>% 
@@ -142,7 +147,8 @@ length(diff3)
 master <- temp2
 ```
 ### Final Data Set
-```{r Final Data Set}
+Consolidating the master table into the stats we will want to use, as well as creating the conf_diff stat
+```{r Final Data Set, cache=TRUE, warning=FALSE}
 #Creating final dataset
 transfer_stats <- master[,c(1:9,11:18,28:35,46:49,65)]
 colnames(transfer_stats) <- c("id","player","tran_year","from_uni","old_conf","to_uni","new_conf","imm_elig","sit","team","conf","g","from_year","usg","ortg","efg","ts","oreb_rate","dreb_rate","bpm","ast_rate","ast_to","to_rate","blk_rate","stl_rate","new_team","conf2","g2","a_year","bpm2")
@@ -181,10 +187,16 @@ final_stats <- transfer_stats[,c(13,15:22,24:26,30,31,1:3)]
 ### Correlation
 ```{r Correlation}
 corrplot(cor(final_stats[,c(1:12,14)]))
-# It appears that TS, eFg, and ortg are all highly correlated (as expected), and we should remove all but 1 of them. I believe we should either use TS or ortg, but it looks like ortg is negatively related to to_rate, so let's go with TS%
-corrplot(cor(final_stats[,c(1,2,5:12,14)]))
-# TS and BPM are both still related, but I think it's small enough that we can move forward with additional selection
 ```
+
+It appears that TS, eFg, and ortg are all highly correlated (as expected), and we should remove all but 1 of them. I believe we should either use TS or ortg, but it looks like ortg is negatively related to to_rate, so let's go with TS%.  
+
+```{r Correlation 2}
+corrplot(cor(final_stats[,c(1,2,5:12,14)]))
+```
+
+TS and BPM are both still related, but I think it's small enough that we can move forward with additional selection
+
 ### AIC Predictor selection
 ```{r AIC Predictors, cache=FALSE}
 library(MASS)
@@ -211,9 +223,36 @@ mod2 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate, data = dat_reg)
 mod3 <- lm(bpm2 ~ bpm + g + usg + ts, data = dat_reg)
 mod4 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate, data = dat_reg)
 mod5 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate, data = dat_reg)
-AIC(mod1,mod2,mod3,mod4,mod5)
+aics <- AIC(mod1,mod2,mod3,mod4,mod5)
 # The AIC is really high regardless, but mod2 and 3 are the best... I think mod3 is the best option for now
+mod3_rmse <- caret::RMSE(dat_reg$bpm2,mod3$fitted.values)
 ```
+Evaluating the full model, it appears that the variables we should fit are g, usg, ts, bpm, and possibly stl_rate, but we'll do AIC model selection to see what values are recommended.
+
+The results from stepAIC are the same 5 variables listed above. While we may have theorized that conf_diff would make a difference, it doesn't appear to at this time.  
+
+We tested 5 different models with different variables to see which one is the best and confirm our AIC selection. The variables included were:
+
++-------+------------+------------+------------+------------+------------+------------+------------+------------+
+| Model |    bpm     |    g       |    usg     |    ts      |   stl_rate |  dreb_rate |  ast_rate  | blk_rate   |
++=======+============+============+============+============+============+============+============+============+
+| mod1  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
++-------+------------+------------+------------+------------+------------+------------+------------+------------+
+| mod2  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
++-------+------------+------------+------------+------------+------------+------------+------------+------------+
+| mod3  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
++-------+------------+------------+------------+------------+------------+------------+------------+------------+
+| mod4  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
++-------+------------+------------+------------+------------+------------+------------+------------+------------+
+| mod5  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
++-------+------------+------------+------------+------------+------------+------------+------------+------------+
+
+The AIC values from models 1:5 are: `r knitr::kable(aics)`  
+Based on the different selection criteria above, I believe we should select mod3 moving forward (for now). This means that we have just 4 predictors. 
+
+The RMSE from mod3 is `r round(mod3_rmse,4)`
+
+
 ### KNN Choose k
 ```{r choose k}
 # Now choose k
@@ -234,27 +273,79 @@ for (i in 2:20){
 p_mse_1 <- ggplot(data = output) +
   geom_point(aes(x = k, y = MSE), color = 'blue', show.legend = FALSE) + 
   xlab("k") +
-  ylab("Error")
+  ylab("Error") +
+  ggtitle("MSE")
 p_rmse_1 <- ggplot(data = output) +
   geom_point(aes(x = k, y= RMSE), color = 'red', show.legend = FALSE) + 
   xlab("k") +
-  ylab("Error")
+  ylab("Error") + 
+  ggtitle("RMSE")
 p_mae_1 <- ggplot(data = output) +
   geom_point(aes(x = k, y = MAE), color = 'green', show.legend = FALSE) +
   xlab("k") +
-  ylab("Error")
+  ylab("Error") + 
+  ggtitle("MAE")
 mins <- apply(output[,1:3], 2, min)
 which(output[,1] == mins[1])
 which(output[,2] == mins[2])
 which(output[,3] == mins[3])
 # Looks like k = 19 is the best... but that seems a bit high... 
-# k = 9 or k = 11 are local mins, so let's use one of those in additional analysis
+# k = 9 or k = 11 are local mins, so let's use one of those in additional analysis... I choose 9
 library(gridExtra)
 grid.arrange(p_mse_1,p_rmse_1,p_mae_1, nrow = 3)
 ```
+
+Based on the graphs (as well as the table output from our choose K metric) we can see that we have local mins at k = 9 and k = 11. I have chosen to use the smaller k (k = 9) for future observation. The table of choose K output can be seen below:  
+`r knitr::kable(output)`
+
 ### LOOCV
-```{r}
+In order to minimize RMSE, we will try using the "Leave one out" cross-validation technique (through the built in r function). We will also run a manual version of LOO in subsequent blocks.
+```{r LOOCV, cache = TRUE}
 ctrl <- trainControl(method = "LOOCV")
 mod_loocv <- train(bpm2 ~ bpm + g + usg + ts, data = dat_reg, method = "lm", trControl = ctrl)
 ```
+
+The RMSE from the internal LOOCV function is `r round(mod_loocv$results[2],4)`
+
+### LOO 
+```{r}
+tran_loo <- dat_reg[,c(1,2,3,6,11)]
+response_loo <- data.frame(matrix(ncol=4))
+colnames(response_loo) <- c('ID','bpm2','Pred_BPM2','bpm2_diff')
+for (i in 1:nrow(tran_loo)){
+  train_loo <- tran_loo[-i,]
+  test_loo <- tran_loo[i,c(1:4)]
+  test_loo_y <- tran_loo[i,5]
+  lmmodel = lm(bpm2 ~ bpm + ts + g + usg, data = tran_loo)
+  pred_y <- predict(lmmodel, data.frame(test_loo))
+  response_loo[i,3] <- pred_y
+  response_loo[i,2] <- test_loo_y
+  response_loo[i,1] <- i
+  response_loo[i,4] <- test_loo_y - pred_y
+}
+RMSE_loo <- caret::RMSE(response_loo$bpm2,response_loo$Pred_BPM2)
+```
+
+The RMSE of self-implemented "leave one out" is: `r round(RMSE_loo,4)`. This is the same as the RMSE of the regular LM model... not sure why that is? 
+
+```{r}
+tran_loo_k <- dat_reg[,c(1,2,3,6,11)]
+response_loo_k <- data.frame(matrix(ncol=4))
+colnames(response_loo_k) <- c('ID','bpm2','Pred_BPM2','bpm2_diff')
+for (i in 1:nrow(tran_loo_k)){
+  train_loo_k <- tran_loo_k[-i,c(1:4)]
+  train_loo_yk <- tran_loo_k[-i,5]
+  test_loo_k <- tran_loo_k[i,c(1:4)]
+  test_loo_yk <- tran_loo_k[i,5]
+  knn_loo <- knnreg(train_loo_k,train_loo_yk,k=9)
+  pred_yk <- predict(knn_loo, test_loo_k)
+  response_loo_k[i,3] <- pred_yk
+  response_loo_k[i,2] <- test_loo_yk
+  response_loo_k[i,1] <- i
+  response_loo_k[i,4] <- test_loo_yk - pred_yk
+}
+RMSE_loo_k <- caret::RMSE(response_loo_k$bpm2,response_loo_k$Pred_BPM2)
+```
+
+The RMSE of self-implemented "leave one out KNN regression" is: `r round(RMSE_loo_k,4)`
 
