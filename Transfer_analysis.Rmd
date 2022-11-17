@@ -21,6 +21,7 @@ set.seed(2141122)
 ```
 
 ```{r Package Loading}
+set.seed(2141122)
 library(tidyverse)
 library(toRvik)
 library(caret)
@@ -125,13 +126,13 @@ temp_post <- temp2 %>%
   group_by(id) %>%
   arrange(id, desc(year.y)) %>% 
   filter(to.x == team) %>% 
-  slice(1) %>% 
+  dplyr::slice(1) %>% 
   ungroup()
 temp_pre <- temp2 %>% 
   group_by(id) %>%
   arrange(id, desc(year.y)) %>% 
   filter(to.x != team) %>% 
-  slice(1) %>% 
+  dplyr::slice(1) %>% 
   ungroup()
 diff1 <- setdiff(temp_pre$id,temp_post$id)
 diff2 <- setdiff(temp_post$id, temp_pre$id)
@@ -211,46 +212,86 @@ train_y <- train[,11]
 test_x <- test[,c(1,2,3,6)]
 test_y <- test[,11]
 
-full.fit <- lm(bpm2 ~ ., data = dat_reg)
-base.fit <- lm(bpm2 ~ 1, data=dat_reg)
+full.fit <- lm(bpm2 ~ ., data = train)
+base.fit <- lm(bpm2 ~ 1, data=train)
 summary(full.fit)
 # Just based on full fit, it appears, that the variables we should keep are g, usg, ts, bpm, and maybe stl_rate...
 fit.aic <- stepAIC(base.fit, direction = 'both', scope = list(upper = full.fit, lower = base.fit))
+fit.aic2 <- stepAIC(full.fit, direction = 'both', scope = list(upper = full.fit, lower = base.fit))
 # It appears that AIC fit has the same 5 predictors mentioned above...
 # We can also add dreb_rate... but it would appear that conf_diff is not significant regardless
-mod1 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate, data = dat_reg)
-mod2 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate, data = dat_reg)
-mod3 <- lm(bpm2 ~ bpm + g + usg + ts, data = dat_reg)
-mod4 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate, data = dat_reg)
-mod5 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate, data = dat_reg)
-aics <- AIC(mod1,mod2,mod3,mod4,mod5)
+mod1 <- lm(bpm2 ~ bpm + g + usg + ts, data = train)
+mod2 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate, data = train)
+mod3 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate, data = train)
+mod4 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate, data = train)
+mod5 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate, data = train)
+mod6 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + blk_rate + to_rate, data = train)
+mod7 <- lm(bpm2 ~ bpm + g + usg + ts + conf_diff, data = train)
+mod8 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + conf_diff, data = train)
+mod9 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + conf_diff, data = train)
+mod10 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + conf_diff, data = train)
+mod11 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate + conf_diff, data = train)
+mod12 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + blk_rate + to_rate + conf_diff, data = train)
+aics <- AIC(mod1,mod2,mod3,mod4,mod5,mod6,mod7,mod8,mod9,mod10,mod11,mod12)
+fitted <- data.frame(matrix(ncol=12,nrow=nrow(test)))
+colnames(fitted) <- c("mod1","mod2","mod3","mod4","mod5","mod6","mod7","mod8","mod9","mod10","mod11","mod12")
+fitted[,1] <- predict(mod1, test)
+fitted[,2] <- predict(mod2, test)
+fitted[,3] <- predict(mod3, test)
+fitted[,4] <- predict(mod4, test)
+fitted[,5] <- predict(mod5, test)
+fitted[,6] <- predict(mod6, test)
+fitted[,7] <- predict(mod7, test)
+fitted[,8] <- predict(mod8, test)
+fitted[,9] <- predict(mod9, test)
+fitted[,10] <- predict(mod10, test)
+fitted[,11] <- predict(mod11, test)
+fitted[,12] <- predict(mod12, test)
+
 # The AIC is really high regardless, but mod2 and 3 are the best... I think mod3 is the best option for now
-mod3_rmse <- caret::RMSE(dat_reg$bpm2,mod3$fitted.values)
+mod_rmse <- data.frame(matrix(ncol=2,nrow=12))
+colnames(mod_rmse) <- c("Model Number","RMSE")
+for(i in 1:12){
+  mod_rmse[i,1] <- i
+  mod_rmse[i,2] <-  round(caret::RMSE(test$bpm2,fitted[,i]),4)
+}
+#mod_rmse %>% arrange(RMSE)
 ```
-Evaluating the full model, it appears that the variables we should fit are g, usg, ts, bpm, and possibly stl_rate, but we'll do AIC model selection to see what values are recommended.
 
-The results from stepAIC are the same 5 variables listed above. While we may have theorized that conf_diff would make a difference, it doesn't appear to at this time.  
+We tested 12 different models with different variables to see which one is the best and confirm our AIC selection. The variables included were:
 
-We tested 5 different models with different variables to see which one is the best and confirm our AIC selection. The variables included were:
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| Model |    bpm     |    g       |    usg     |    ts      |   stl_rate |  dreb_rate |  ast_rate  | blk_rate   |  to_rate   | conf_diff  | RMSE 
++=======+============+============+============+============+============+============+============+============+============+============+=================+
+| mod1  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |            |            |            |            |`r mod_rmse[1,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod2  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |            |            |            |`r mod_rmse[2,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod3  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |            |            |`r mod_rmse[3,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod4  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |            |`r mod_rmse[4,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod5  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |`r mod_rmse[5,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod6  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |$\checkmark$|$\checkmark$|            |`r mod_rmse[6,2]`           
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod7  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |            |            |            |$\checkmark$|`r mod_rmse[7,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod8  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |            |            |$\checkmark$|`r mod_rmse[8,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod9  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |            |$\checkmark$|`r mod_rmse[9,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod10 |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |$\checkmark$|`r mod_rmse[10,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod11 |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |$\checkmark$|`r mod_rmse[11,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
+| mod12 |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|            |            |$\checkmark$|$\checkmark$|$\checkmark$|`r mod_rmse[12,2]`
++-------+------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+-----------------+
 
-+-------+------------+------------+------------+------------+------------+------------+------------+------------+
-| Model |    bpm     |    g       |    usg     |    ts      |   stl_rate |  dreb_rate |  ast_rate  | blk_rate   |
-+=======+============+============+============+============+============+============+============+============+
-| mod1  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
-+-------+------------+------------+------------+------------+------------+------------+------------+------------+
-| mod2  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
-+-------+------------+------------+------------+------------+------------+------------+------------+------------+
-| mod3  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
-+-------+------------+------------+------------+------------+------------+------------+------------+------------+
-| mod4  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
-+-------+------------+------------+------------+------------+------------+------------+------------+------------+
-| mod5  |$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|$\checkmark$|
-+-------+------------+------------+------------+------------+------------+------------+------------+------------+
+The AIC values from models 1:12 are: `r knitr::kable(aics)`  
+Based on the AIC selection criteria above, I believe we should select mod1 moving forward (for now). This means that we have just 4 predictors. RMSE agrees.
 
-The AIC values from models 1:5 are: `r knitr::kable(aics)`  
-Based on the different selection criteria above, I believe we should select mod3 moving forward (for now). This means that we have just 4 predictors. 
-
-The RMSE from mod3 is `r round(mod3_rmse,4)`
+The RMSE from mod1 is `r round(mod_rmse[1,2],4)`
 
 
 ### KNN Choose k
@@ -361,18 +402,17 @@ pred_yx = predict(xgbc, xgb_test)
 rmsex = caret::RMSE(test_y, pred_yx)
 ```
 
-The RMSE of extreme gradient boosting training is `r rmsex`. It appears that the RMSE of the basic model (mod3) is the best, followed by LOOCV, LOO-KNN, KNN, and finally XGBT.
+The RMSE of extreme gradient boosting training is `r rmsex`. It appears that the RMSE of the basic model (mod1) is the best, followed by LOOCV, LOO-KNN, KNN, and finally XGBT.
 
 # Predictive Function
 ## Writing the function
 ```{r}
-
 bpm_pred_name <- function(years = current_season(), id = NULL, name = NULL){
   require(toRvik)
     players <- bart_players(year = years)
   specific_player <- players[which((players$player == name) & players$year == years),]
   stats_hold <- bart_player_season(year = years, id = specific_player$id, stat = 'all')
-  bpm2 <- mod3$coefficients[1] + mod3$coefficients[2]*stats_hold$bpm + mod3$coefficients[3]*stats_hold$g + mod3$coefficients[4]*stats_hold$usg + mod3$coefficients[5]*stats_hold$ts
+  bpm2 <- mod1$coefficients[1] + mod1$coefficients[2]*stats_hold$bpm + mod1$coefficients[3]*stats_hold$g + mod1$coefficients[4]*stats_hold$usg + mod1$coefficients[5]*stats_hold$ts
   unlist(bpm2)
   if(nrow(specific_player) == 0){
     return("This player did not play that year")
@@ -381,7 +421,7 @@ bpm_pred_name <- function(years = current_season(), id = NULL, name = NULL){
   } 
 bpm_pred_stats <- function(bpm = NULL, g = NULL, usg = NULL, ts = NULL){
   require(toRvik)  
-  bpm2 <- mod3$coefficients[1] + mod3$coefficients[2]*bpm + mod3$coefficients[3]*g + mod3$coefficients[4]*usg + mod3$coefficients[5]*ts
+  bpm2 <- mod1$coefficients[1] + mod1$coefficients[2]*bpm + mod1$coefficients[3]*g + mod1$coefficients[4]*usg + mod1$coefficients[5]*ts
     return(cat(as.double(bpm2)))
   }
 bpm_pred_name(years = 2022, name = "Baylor Scheierman")

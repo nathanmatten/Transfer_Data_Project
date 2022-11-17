@@ -11,7 +11,7 @@
 
 <meta name="author" content="Nathan Matten" />
 
-<meta name="date" content="2022-11-16" />
+<meta name="date" content="2022-11-17" />
 
 <title>Transfer_analysis</title>
 
@@ -1575,12 +1575,13 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">Transfer_analysis</h1>
 <h4 class="author">Nathan Matten</h4>
-<h4 class="date">2022-11-16</h4>
+<h4 class="date">2022-11-17</h4>
 
 </div>
 
 
-<pre class="r"><code>library(tidyverse)
+<pre class="r"><code>set.seed(2141122)
+library(tidyverse)
 library(toRvik)
 library(caret)
 library(corrplot)</code></pre>
@@ -1696,13 +1697,13 @@ temp_post &lt;- temp2 %&gt;%
   group_by(id) %&gt;%
   arrange(id, desc(year.y)) %&gt;% 
   filter(to.x == team) %&gt;% 
-  slice(1) %&gt;% 
+  dplyr::slice(1) %&gt;% 
   ungroup()
 temp_pre &lt;- temp2 %&gt;% 
   group_by(id) %&gt;%
   arrange(id, desc(year.y)) %&gt;% 
   filter(to.x != team) %&gt;% 
-  slice(1) %&gt;% 
+  dplyr::slice(1) %&gt;% 
   ungroup()
 diff1 &lt;- setdiff(temp_pre$id,temp_post$id)
 diff2 &lt;- setdiff(temp_post$id, temp_pre$id)
@@ -1788,40 +1789,66 @@ train_y &lt;- train[,11]
 test_x &lt;- test[,c(1,2,3,6)]
 test_y &lt;- test[,11]
 
-full.fit &lt;- lm(bpm2 ~ ., data = dat_reg)
-base.fit &lt;- lm(bpm2 ~ 1, data=dat_reg)
+full.fit &lt;- lm(bpm2 ~ ., data = train)
+base.fit &lt;- lm(bpm2 ~ 1, data=train)
 summary(full.fit)
 # Just based on full fit, it appears, that the variables we should keep are g, usg, ts, bpm, and maybe stl_rate...
 fit.aic &lt;- stepAIC(base.fit, direction = &#39;both&#39;, scope = list(upper = full.fit, lower = base.fit))
+fit.aic2 &lt;- stepAIC(full.fit, direction = &#39;both&#39;, scope = list(upper = full.fit, lower = base.fit))
 # It appears that AIC fit has the same 5 predictors mentioned above...
 # We can also add dreb_rate... but it would appear that conf_diff is not significant regardless
-mod1 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate, data = dat_reg)
-mod2 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate, data = dat_reg)
-mod3 &lt;- lm(bpm2 ~ bpm + g + usg + ts, data = dat_reg)
-mod4 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate, data = dat_reg)
-mod5 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate, data = dat_reg)
-aics &lt;- AIC(mod1,mod2,mod3,mod4,mod5)
+mod1 &lt;- lm(bpm2 ~ bpm + g + usg + ts, data = train)
+mod2 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate, data = train)
+mod3 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate, data = train)
+mod4 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate, data = train)
+mod5 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate, data = train)
+mod6 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + blk_rate + to_rate, data = train)
+mod7 &lt;- lm(bpm2 ~ bpm + g + usg + ts + conf_diff, data = train)
+mod8 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + conf_diff, data = train)
+mod9 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + conf_diff, data = train)
+mod10 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + conf_diff, data = train)
+mod11 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate + conf_diff, data = train)
+mod12 &lt;- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + blk_rate + to_rate + conf_diff, data = train)
+aics &lt;- AIC(mod1,mod2,mod3,mod4,mod5,mod6,mod7,mod8,mod9,mod10,mod11,mod12)
+fitted &lt;- data.frame(matrix(ncol=12,nrow=nrow(test)))
+colnames(fitted) &lt;- c(&quot;mod1&quot;,&quot;mod2&quot;,&quot;mod3&quot;,&quot;mod4&quot;,&quot;mod5&quot;,&quot;mod6&quot;,&quot;mod7&quot;,&quot;mod8&quot;,&quot;mod9&quot;,&quot;mod10&quot;,&quot;mod11&quot;,&quot;mod12&quot;)
+fitted[,1] &lt;- predict(mod1, test)
+fitted[,2] &lt;- predict(mod2, test)
+fitted[,3] &lt;- predict(mod3, test)
+fitted[,4] &lt;- predict(mod4, test)
+fitted[,5] &lt;- predict(mod5, test)
+fitted[,6] &lt;- predict(mod6, test)
+fitted[,7] &lt;- predict(mod7, test)
+fitted[,8] &lt;- predict(mod8, test)
+fitted[,9] &lt;- predict(mod9, test)
+fitted[,10] &lt;- predict(mod10, test)
+fitted[,11] &lt;- predict(mod11, test)
+fitted[,12] &lt;- predict(mod12, test)
+
 # The AIC is really high regardless, but mod2 and 3 are the best... I think mod3 is the best option for now
-mod3_rmse &lt;- caret::RMSE(dat_reg$bpm2,mod3$fitted.values)</code></pre>
-<p>Evaluating the full model, it appears that the variables we should
-fit are g, usg, ts, bpm, and possibly stl_rate, but we’ll do AIC model
-selection to see what values are recommended.</p>
-<p>The results from stepAIC are the same 5 variables listed above. While
-we may have theorized that conf_diff would make a difference, it doesn’t
-appear to at this time.</p>
-<p>We tested 5 different models with different variables to see which
+mod_rmse &lt;- data.frame(matrix(ncol=2,nrow=12))
+colnames(mod_rmse) &lt;- c(&quot;Model Number&quot;,&quot;RMSE&quot;)
+for(i in 1:12){
+  mod_rmse[i,1] &lt;- i
+  mod_rmse[i,2] &lt;-  round(caret::RMSE(test$bpm2,fitted[,i]),4)
+}
+#mod_rmse %&gt;% arrange(RMSE)</code></pre>
+<p>We tested 12 different models with different variables to see which
 one is the best and confirm our AIC selection. The variables included
 were:</p>
 <table style="width:94%;">
 <colgroup>
-<col width="6%" />
-<col width="10%" />
-<col width="10%" />
-<col width="10%" />
-<col width="10%" />
-<col width="10%" />
-<col width="10%" />
-<col width="10%" />
+<col width="4%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
+<col width="7%" />
 <col width="10%" />
 </colgroup>
 <thead>
@@ -1835,6 +1862,9 @@ were:</p>
 <th>dreb_rate</th>
 <th>ast_rate</th>
 <th>blk_rate</th>
+<th>to_rate</th>
+<th>conf_diff</th>
+<th>RMSE</th>
 </tr>
 </thead>
 <tbody>
@@ -1844,9 +1874,13 @@ were:</p>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
-<td><span class="math inline">\(\checkmark\)</span></td>
-<td><span class="math inline">\(\checkmark\)</span></td>
-<td colspan="2"></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>8.677</td>
 </tr>
 <tr class="even">
 <td>mod2</td>
@@ -1855,7 +1889,12 @@ were:</p>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
-<td colspan="3"></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>8.682</td>
 </tr>
 <tr class="odd">
 <td>mod3</td>
@@ -1863,7 +1902,13 @@ were:</p>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
-<td colspan="4"></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>8.679</td>
 </tr>
 <tr class="even">
 <td>mod4</td>
@@ -1875,6 +1920,9 @@ were:</p>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td></td>
+<td></td>
+<td></td>
+<td>8.6772</td>
 </tr>
 <tr class="odd">
 <td>mod5</td>
@@ -1886,10 +1934,111 @@ were:</p>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
 <td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td>8.6782</td>
+</tr>
+<tr class="even">
+<td>mod6</td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td>8.6817</td>
+</tr>
+<tr class="odd">
+<td>mod7</td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td>8.6888</td>
+</tr>
+<tr class="even">
+<td>mod8</td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td>8.6935</td>
+</tr>
+<tr class="odd">
+<td>mod9</td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td>8.6901</td>
+</tr>
+<tr class="even">
+<td>mod10</td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td>8.6881</td>
+</tr>
+<tr class="odd">
+<td>mod11</td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td>8.689</td>
+</tr>
+<tr class="even">
+<td>mod12</td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td></td>
+<td></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td><span class="math inline">\(\checkmark\)</span></td>
+<td>8.6928</td>
 </tr>
 </tbody>
 </table>
-<p>The AIC values from models 1:5 are:</p>
+<p>The AIC values from models 1:12 are:</p>
 <table>
 <thead>
 <tr class="header">
@@ -1901,35 +2050,70 @@ were:</p>
 <tbody>
 <tr class="odd">
 <td align="left">mod1</td>
-<td align="right">8</td>
-<td align="right">14166.17</td>
+<td align="right">6</td>
+<td align="right">10929.24</td>
 </tr>
 <tr class="even">
 <td align="left">mod2</td>
 <td align="right">7</td>
-<td align="right">14165.68</td>
+<td align="right">10927.30</td>
 </tr>
 <tr class="odd">
 <td align="left">mod3</td>
-<td align="right">6</td>
-<td align="right">14165.90</td>
+<td align="right">8</td>
+<td align="right">10928.16</td>
 </tr>
 <tr class="even">
 <td align="left">mod4</td>
 <td align="right">9</td>
-<td align="right">14167.34</td>
+<td align="right">10929.56</td>
 </tr>
 <tr class="odd">
 <td align="left">mod5</td>
 <td align="right">10</td>
-<td align="right">14169.16</td>
+<td align="right">10931.54</td>
+</tr>
+<tr class="even">
+<td align="left">mod6</td>
+<td align="right">9</td>
+<td align="right">10931.16</td>
+</tr>
+<tr class="odd">
+<td align="left">mod7</td>
+<td align="right">7</td>
+<td align="right">10930.55</td>
+</tr>
+<tr class="even">
+<td align="left">mod8</td>
+<td align="right">8</td>
+<td align="right">10928.65</td>
+</tr>
+<tr class="odd">
+<td align="left">mod9</td>
+<td align="right">9</td>
+<td align="right">10929.55</td>
+</tr>
+<tr class="even">
+<td align="left">mod10</td>
+<td align="right">10</td>
+<td align="right">10930.97</td>
+</tr>
+<tr class="odd">
+<td align="left">mod11</td>
+<td align="right">11</td>
+<td align="right">10932.94</td>
+</tr>
+<tr class="even">
+<td align="left">mod12</td>
+<td align="right">10</td>
+<td align="right">10932.52</td>
 </tr>
 </tbody>
 </table>
-<p>Based on the different selection criteria above, I believe we should
-select mod3 moving forward (for now). This means that we have just 4
-predictors.</p>
-<p>The RMSE from mod3 is 6.3878</p>
+<p>Based on the AIC selection criteria above, I believe we should select
+mod1 moving forward (for now). This means that we have just 4
+predictors. RMSE agrees.</p>
+<p>The RMSE from mod1 is 8.677</p>
 </div>
 <div id="knn-choose-k" class="section level3" number="2.1.3">
 <h3><span class="header-section-number">2.1.3</span> KNN Choose k</h3>
@@ -2168,7 +2352,7 @@ xgbc = xgboost(data = xgb_train, max.depth = 2, nrounds = 50)
 pred_yx = predict(xgbc, xgb_test)
 rmsex = caret::RMSE(test_y, pred_yx)</code></pre>
 <p>The RMSE of extreme gradient boosting training is 9.1772516. It
-appears that the RMSE of the basic model (mod3) is the best, followed by
+appears that the RMSE of the basic model (mod1) is the best, followed by
 LOOCV, LOO-KNN, KNN, and finally XGBT.</p>
 </div>
 </div>
@@ -2179,18 +2363,25 @@ Function</h1>
 <div id="writing-the-function" class="section level2" number="3.1">
 <h2><span class="header-section-number">3.1</span> Writing the
 function</h2>
-<pre class="r"><code>bpm_pred &lt;- function(years = current_season(), id = NULL, name = NULL, bpm = NULL, g = NULL,usg = NULL,ts = NULL){
-  players &lt;- bart_players(year = years)
+<pre class="r"><code>bpm_pred_name &lt;- function(years = current_season(), id = NULL, name = NULL){
+  require(toRvik)
+    players &lt;- bart_players(year = years)
   specific_player &lt;- players[which((players$player == name) &amp; players$year == years),]
   stats_hold &lt;- bart_player_season(year = years, id = specific_player$id, stat = &#39;all&#39;)
-  bpm2 &lt;- mod3$coefficients[1] + mod3$coefficients[2]*stats_hold$bpm + mod3$coefficients[3]*stats_hold$g + mod3$coefficients[4]*stats_hold$usg + mod3$coefficients[5]*stats_hold$ts
+  bpm2 &lt;- mod1$coefficients[1] + mod1$coefficients[2]*stats_hold$bpm + mod1$coefficients[3]*stats_hold$g + mod1$coefficients[4]*stats_hold$usg + mod1$coefficients[5]*stats_hold$ts
   unlist(bpm2)
   if(nrow(specific_player) == 0){
     return(&quot;This player did not play that year&quot;)
   }
   else{return(cat(as.double(bpm2)))}
-}
-bpm_pred(years = 2022, name = &quot;Greg Elliott&quot;)</code></pre>
+  } 
+bpm_pred_stats &lt;- function(bpm = NULL, g = NULL, usg = NULL, ts = NULL){
+  require(toRvik)  
+  bpm2 &lt;- mod1$coefficients[1] + mod1$coefficients[2]*bpm + mod1$coefficients[3]*g + mod1$coefficients[4]*usg + mod1$coefficients[5]*ts
+    return(cat(as.double(bpm2)))
+  }
+bpm_pred_name(years = 2022, name = &quot;Baylor Scheierman&quot;)
+bpm_pred_stats(7.53,33,22.6,64.3)</code></pre>
 <p>This function can now take the input of a specific year and a player
 name and return their predicted BPM based on transfer data… I’m curious
 what would happen if I added in conf_diff as a predictor and how to
