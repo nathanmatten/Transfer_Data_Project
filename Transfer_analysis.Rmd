@@ -366,8 +366,10 @@ The RMSE of extreme gradient boosting training is `r rmsex`. It appears that the
 # Predictive Function
 ## Writing the function
 ```{r}
-bpm_pred <- function(years = current_season(), id = NULL, name = NULL, bpm = NULL, g = NULL,usg = NULL,ts = NULL){
-  players <- bart_players(year = years)
+
+bpm_pred_name <- function(years = current_season(), id = NULL, name = NULL){
+  require(toRvik)
+    players <- bart_players(year = years)
   specific_player <- players[which((players$player == name) & players$year == years),]
   stats_hold <- bart_player_season(year = years, id = specific_player$id, stat = 'all')
   bpm2 <- mod3$coefficients[1] + mod3$coefficients[2]*stats_hold$bpm + mod3$coefficients[3]*stats_hold$g + mod3$coefficients[4]*stats_hold$usg + mod3$coefficients[5]*stats_hold$ts
@@ -376,8 +378,13 @@ bpm_pred <- function(years = current_season(), id = NULL, name = NULL, bpm = NUL
     return("This player did not play that year")
   }
   else{return(cat(as.double(bpm2)))}
-}
-bpm_pred(years = 2022, name = "Greg Elliott")
+  } 
+bpm_pred_stats <- function(bpm = NULL, g = NULL, usg = NULL, ts = NULL){
+    bpm2 <- mod3$coefficients[1] + mod3$coefficients[2]*bpm + mod3$coefficients[3]*g + mod3$coefficients[4]*usg + mod3$coefficients[5]*ts
+    return(cat(as.double(bpm2)))
+  }
+bpm_pred_name(years = 2022, name = "Baylor Scheierman")
+bpm_pred_stats(7.53,33,22.6,64.3)
 ```
 
 This function can now take the input of a specific year and a player name and return their predicted BPM based on transfer data... I'm curious what would happen if I added in conf_diff as a predictor and how to calculate on the fly, but that can be a future question.
