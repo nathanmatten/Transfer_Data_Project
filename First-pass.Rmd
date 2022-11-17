@@ -379,7 +379,7 @@ for (i in 1:nrow(tran_loo)){
   #train_loo_y <- tran_loo[-i,4]
   test_loo <- tran_loo[i,c(1:3)]
   test_loo_y <- tran_loo[i,4]
-  lmmodel = lm(BPM2 ~ BPM + TS_per + blk_per, data = tran_loo)
+  lmmodel = lm(BPM2 ~ BPM + TS_per + blk_per, data = train_loo)
   pred_y <- predict(lmmodel, data.frame(test_loo))
   response_loo[i,3] <- pred_y
   response_loo[i,2] <- test_loo_y

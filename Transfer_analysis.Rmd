@@ -1,5 +1,5 @@
 ---
-title: "Transfer_analysis"
+title: "Transfer Analysis"
 author: "Nathan Matten"
 date: "`r Sys.Date()`"
 output:
@@ -8,8 +8,8 @@ output:
     toc: yes
     toc_float: yes
     fig_caption: yes
-    fig_width: 6
-    fig_height: 4
+    fig_width: 10
+    fig_height: 7.5
     code_folding: hide
 editor_options: 
   chunk_output_type: console
@@ -21,7 +21,6 @@ set.seed(2141122)
 ```
 
 ```{r Package Loading}
-set.seed(2141122)
 library(tidyverse)
 library(toRvik)
 library(caret)
@@ -199,15 +198,21 @@ corrplot(cor(final_stats[,c(1,2,5:12,14)]))
 TS and BPM are both still related, but I think it's small enough that we can move forward with additional selection
 
 ### AIC Predictor selection
-```{r AIC Predictors, cache=FALSE}
+```{r AIC Predictors, cache=FALSE, warning = FALSE}
 library(MASS)
 dat_reg <- final_stats %>% dplyr::select(g,usg,ts,oreb_rate,dreb_rate,bpm,ast_rate,to_rate,blk_rate,stl_rate,bpm2,conf_diff)
 indexes <- createDataPartition(dat_reg$bpm2, p = .8, list = F)
 train <- dat_reg[indexes, ]
 test <- dat_reg[-indexes, ]
+indexes2 <-  createDataPartition(train$bpm2, p = .76, list = F)
+validate <- train[-indexes2,]
+train <- train[indexes2,]
 
 train_x <- train[,c(1,2,3,6)]
 train_y <- train[,11]
+
+validate_x <- validate[,c(1,2,3,6)]
+validate_y <- validate[,11]
 
 test_x <- test[,c(1,2,3,6)]
 test_y <- test[,11]
@@ -233,29 +238,41 @@ mod10 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + conf_d
 mod11 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + dreb_rate + ast_rate + blk_rate + conf_diff, data = train)
 mod12 <- lm(bpm2 ~ bpm + g + usg + ts + stl_rate + blk_rate + to_rate + conf_diff, data = train)
 aics <- AIC(mod1,mod2,mod3,mod4,mod5,mod6,mod7,mod8,mod9,mod10,mod11,mod12)
-fitted <- data.frame(matrix(ncol=12,nrow=nrow(test)))
+fitted <- data.frame(matrix(ncol=12,nrow=nrow(validate)))
 colnames(fitted) <- c("mod1","mod2","mod3","mod4","mod5","mod6","mod7","mod8","mod9","mod10","mod11","mod12")
-fitted[,1] <- predict(mod1, test)
-fitted[,2] <- predict(mod2, test)
-fitted[,3] <- predict(mod3, test)
-fitted[,4] <- predict(mod4, test)
-fitted[,5] <- predict(mod5, test)
-fitted[,6] <- predict(mod6, test)
-fitted[,7] <- predict(mod7, test)
-fitted[,8] <- predict(mod8, test)
-fitted[,9] <- predict(mod9, test)
-fitted[,10] <- predict(mod10, test)
-fitted[,11] <- predict(mod11, test)
-fitted[,12] <- predict(mod12, test)
+fitted[,1] <- predict(mod1, validate)
+fitted[,2] <- predict(mod2, validate)
+fitted[,3] <- predict(mod3, validate)
+fitted[,4] <- predict(mod4, validate)
+fitted[,5] <- predict(mod5, validate)
+fitted[,6] <- predict(mod6, validate)
+fitted[,7] <- predict(mod7, validate)
+fitted[,8] <- predict(mod8, validate)
+fitted[,9] <- predict(mod9, validate)
+fitted[,10] <- predict(mod10, validate)
+fitted[,11] <- predict(mod11, validate)
+fitted[,12] <- predict(mod12, validate)
 
 # The AIC is really high regardless, but mod2 and 3 are the best... I think mod3 is the best option for now
 mod_rmse <- data.frame(matrix(ncol=2,nrow=12))
 colnames(mod_rmse) <- c("Model Number","RMSE")
 for(i in 1:12){
   mod_rmse[i,1] <- i
-  mod_rmse[i,2] <-  round(caret::RMSE(test$bpm2,fitted[,i]),4)
+  mod_rmse[i,2] <-  round(caret::RMSE(validate$bpm2,fitted[,i]),4)
 }
 #mod_rmse %>% arrange(RMSE)
+# Either model 2 or 7...
+test_fit <- data.frame(matrix(ncol=2,nrow=nrow(test)))
+colnames(test_fit) <- c("mod1","mod7")
+test_fit[,1] <- predict(mod1, test)
+test_fit[,2] <- predict(mod7, test)
+mod_rmse_test <- data.frame(matrix(ncol=2,nrow=2))
+colnames(mod_rmse_test) <- c("Model Number","RMSE")
+for(i in 1:2){
+  mod_rmse_test[i,2] <-  round(caret::RMSE(test$bpm2,fitted[,i]),4)
+}
+mod_rmse_test[,1] <- c(1,7)
+# Based on the test set, model 1 is better
 ```
 
 We tested 12 different models with different variables to see which one is the best and confirm our AIC selection. The variables included were:
@@ -291,7 +308,7 @@ We tested 12 different models with different variables to see which one is the b
 The AIC values from models 1:12 are: `r knitr::kable(aics)`  
 Based on the AIC selection criteria above, I believe we should select mod1 moving forward (for now). This means that we have just 4 predictors. RMSE agrees.
 
-The RMSE from mod1 is `r round(mod_rmse[1,2],4)`
+The RMSE from mod1 for the validation set is `r round(mod_rmse[1,2],4)`
 
 
 ### KNN Choose k
@@ -303,12 +320,12 @@ colnames(output) <- c('MSE','MAE','RMSE','k')
 for (i in 2:20){
   knnmodel = knnreg(train_x,train_y,k=i)
   #cat(knnmodel,i)
-  pred_y <- predict(knnmodel, data.frame(test_x))
+  pred_y <- predict(knnmodel, data.frame(validate_x))
   #cat(pred_y,i)
   output[i-1,4] <- i
-  output[i-1,1] <- mean((test_y - pred_y)^2)
-  output[i-1,2] <- caret::MAE(test_y,pred_y)
-  output[i-1,3] <- caret::RMSE(test_y,pred_y)
+  output[i-1,1] <- round(mean((validate_y - pred_y)^2),4)
+  output[i-1,2] <- round(caret::MAE(validate_y,pred_y),4)
+  output[i-1,3] <- round(caret::RMSE(validate_y,pred_y),4)
   cat("KNN Model", i, ": BPM Prediction","MSE: ", output[i-1,1], "MAE: ", output[i-1,2], " RMSE: ", output[i-1,3], '\n')
 }
 p_mse_1 <- ggplot(data = output) +
@@ -336,7 +353,7 @@ library(gridExtra)
 grid.arrange(p_mse_1,p_rmse_1,p_mae_1, nrow = 3)
 ```
 
-Based on the graphs (as well as the table output from our choose K metric) we can see that we have local mins at k = 9 and k = 11. I have chosen to use the smaller k (k = 9) for future observation. The table of choose K output can be seen below:  
+Based on the graphs (as well as the table output from our choose K metric) we can see that we have local mins at k = 11. k = 11 is definitely the best option in this case. The table of choose K output can be seen below:  
 `r knitr::kable(output)`
 
 ## Additional analysis methods 
@@ -350,7 +367,7 @@ mod_loocv <- train(bpm2 ~ bpm + g + usg + ts, data = dat_reg, method = "lm", trC
 The RMSE from the internal LOOCV function is `r round(mod_loocv$results[2],4)`
 
 ### LOO 
-```{r}
+```{r LOO, cache = TRUE}
 tran_loo <- dat_reg[,c(1,2,3,6,11)]
 response_loo <- data.frame(matrix(ncol=4))
 colnames(response_loo) <- c('ID','bpm2','Pred_BPM2','bpm2_diff')
@@ -371,7 +388,7 @@ RMSE_loo <- caret::RMSE(response_loo$bpm2,response_loo$Pred_BPM2)
 The RMSE of self-implemented "leave one out" is: `r round(RMSE_loo,4)`. This is the same as LOOCV function (which it should be - so it appears that I'm doing it correctly).
 
 ### LOO KNN
-```{r}
+```{r LOO KNN, cache = TRUE}
 tran_loo_k <- dat_reg[,c(1,2,3,6,11)]
 response_loo_k <- data.frame(matrix(ncol=4))
 colnames(response_loo_k) <- c('ID','bpm2','Pred_BPM2','bpm2_diff')
@@ -380,7 +397,7 @@ for (i in 1:nrow(tran_loo_k)){
   train_loo_yk <- tran_loo_k[-i,5]
   test_loo_k <- tran_loo_k[i,c(1:4)]
   test_loo_yk <- tran_loo_k[i,5]
-  knn_loo <- knnreg(train_loo_k,train_loo_yk,k=9)
+  knn_loo <- knnreg(train_loo_k,train_loo_yk,k=11)
   pred_yk <- predict(knn_loo, test_loo_k)
   response_loo_k[i,3] <- pred_yk
   response_loo_k[i,2] <- test_loo_yk
@@ -393,7 +410,7 @@ RMSE_loo_k <- caret::RMSE(response_loo_k$bpm2,response_loo_k$Pred_BPM2)
 The RMSE of self-implemented "leave one out KNN regression" is: `r round(RMSE_loo_k,4)`
 
 ### Extreme Gradient Boost analysis
-```{r extreme gradient boosting training}
+```{r extreme gradient boosting training, cache=TRUE}
 library(xgboost)
 xgb_train = xgb.DMatrix(data = as.matrix(train_x), label = train_y)
 xgb_test = xgb.DMatrix(data = as.matrix(test_x), label = test_y)
@@ -402,11 +419,11 @@ pred_yx = predict(xgbc, xgb_test)
 rmsex = caret::RMSE(test_y, pred_yx)
 ```
 
-The RMSE of extreme gradient boosting training is `r rmsex`. It appears that the RMSE of the basic model (mod1) is the best, followed by LOOCV, LOO-KNN, KNN, and finally XGBT.
+The RMSE of extreme gradient boosting training is `r round(rmsex,4)`. It appears that the LOOCV is the best, followed by LOO-KNN, RMSE of the basic model (mod1), KNN, and finally XGBT.
 
 # Predictive Function
 ## Writing the function
-```{r}
+```{r BPM Prediction Function}
 bpm_pred_name <- function(years = current_season(), id = NULL, name = NULL){
   require(toRvik)
     players <- bart_players(year = years)
@@ -425,7 +442,9 @@ bpm_pred_stats <- function(bpm = NULL, g = NULL, usg = NULL, ts = NULL){
     return(cat(as.double(bpm2)))
   }
 bpm_pred_name(years = 2022, name = "Baylor Scheierman")
+
 bpm_pred_stats(7.53,33,22.6,64.3)
 ```
 
 This function can now take the input of a specific year and a player name and return their predicted BPM based on transfer data... I'm curious what would happen if I added in conf_diff as a predictor and how to calculate on the fly, but that can be a future question.
+One of my other questions is should I do prediction without the previous year's BPM? That might be drastically skewing the results.
