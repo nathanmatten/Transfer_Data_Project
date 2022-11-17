@@ -31,7 +31,7 @@ library(corrplot)
 ## Data Loading
 ### Transfer Players dataframe
 The code below creates the transfer_players dataset, as well as removes the players that transferred to and from outside d1
-```{r Data Loading, cache = TRUE}
+```{r Data Loading}
 transfer_players <- transfer_portal(year = 2017) %>% 
   rbind(transfer_portal(year = 2018)) %>% 
   rbind(transfer_portal(year = 2019)) %>% 
@@ -44,7 +44,7 @@ transfer_players <- transfer_portal(year = 2017) %>%
 ```
 ### Player stats dataframe
 We now create a giant player_stats table with all players from seasons 2015 through 2022
-```{r Player Stats, cache = TRUE}
+```{r Player Stats}
 player_stats <- bart_player_season(year = 2017, stat = 'all') %>%   
   rbind(bart_player_season(year = 2018, stat = 'all')) %>%
   rbind(bart_player_season(year = 2019, stat = 'all')) %>%
@@ -56,7 +56,7 @@ player_stats <- bart_player_season(year = 2017, stat = 'all') %>%
 ```
 ### Conference Ratings Dataframe
 In order to calculate the conf_diff stat, we need a dataframe with the conference ratings. That is created below.
-```{r Conference Ratings, cache = TRUE}
+```{r Conference Ratings}
 conf_ratings <- read.csv(file = "~/Documents/GitHub/Transfer_Data_Pitt/kenpom_ratings_16_22.csv")
 colnames(conf_ratings) <- c("Conference","2016","2017","2018","2019","2020","2021","2022")
 conf_ratings$Conference[conf_ratings$Conference == "Horizon"] <- "Horz" 
@@ -84,7 +84,7 @@ conf_ratings$Conference[conf_ratings$Conference == "AAC"] <- "Amer"
 ## Data Wrangling/Merging
 ### Data Set for transferred players
 Working through merging tables to create a master table with all stats for transfer players from the season before they transferred to the season after transfer.
-```{r Data Wrangling/Merging, cache=TRUE}
+```{r Data Wrangling/Merging}
 player_stats <- player_stats %>% 
   dplyr::select(id,player,team,conf,g,year,usg,ortg,efg,ts,ftm,fta,ft_pct,two_m,two_a,two_pct,three_m,three_a,three_pct,oreb_rate,dreb_rate,bpm,ast,ast_to,to,blk,stl)
 team_mapping <- unique(player_stats[,c("team", "conf")]) %>% 
@@ -298,6 +298,7 @@ grid.arrange(p_mse_1,p_rmse_1,p_mae_1, nrow = 3)
 Based on the graphs (as well as the table output from our choose K metric) we can see that we have local mins at k = 9 and k = 11. I have chosen to use the smaller k (k = 9) for future observation. The table of choose K output can be seen below:  
 `r knitr::kable(output)`
 
+## Additional analysis methods 
 ### LOOCV
 In order to minimize RMSE, we will try using the "Leave one out" cross-validation technique (through the built in r function). We will also run a manual version of LOO in subsequent blocks.
 ```{r LOOCV, cache = TRUE}
@@ -316,7 +317,7 @@ for (i in 1:nrow(tran_loo)){
   train_loo <- tran_loo[-i,]
   test_loo <- tran_loo[i,c(1:4)]
   test_loo_y <- tran_loo[i,5]
-  lmmodel = lm(bpm2 ~ bpm + ts + g + usg, data = tran_loo)
+  lmmodel = lm(bpm2 ~ bpm + ts + g + usg, data = train_loo)
   pred_y <- predict(lmmodel, data.frame(test_loo))
   response_loo[i,3] <- pred_y
   response_loo[i,2] <- test_loo_y
@@ -326,8 +327,9 @@ for (i in 1:nrow(tran_loo)){
 RMSE_loo <- caret::RMSE(response_loo$bpm2,response_loo$Pred_BPM2)
 ```
 
-The RMSE of self-implemented "leave one out" is: `r round(RMSE_loo,4)`. This is the same as the RMSE of the regular LM model... not sure why that is? 
+The RMSE of self-implemented "leave one out" is: `r round(RMSE_loo,4)`. This is the same as LOOCV function (which it should be - so it appears that I'm doing it correctly).
 
+### LOO KNN
 ```{r}
 tran_loo_k <- dat_reg[,c(1,2,3,6,11)]
 response_loo_k <- data.frame(matrix(ncol=4))
@@ -349,3 +351,33 @@ RMSE_loo_k <- caret::RMSE(response_loo_k$bpm2,response_loo_k$Pred_BPM2)
 
 The RMSE of self-implemented "leave one out KNN regression" is: `r round(RMSE_loo_k,4)`
 
+### Extreme Gradient Boost analysis
+```{r extreme gradient boosting training}
+library(xgboost)
+xgb_train = xgb.DMatrix(data = as.matrix(train_x), label = train_y)
+xgb_test = xgb.DMatrix(data = as.matrix(test_x), label = test_y)
+xgbc = xgboost(data = xgb_train, max.depth = 2, nrounds = 50)
+pred_yx = predict(xgbc, xgb_test)
+rmsex = caret::RMSE(test_y, pred_yx)
+```
+
+The RMSE of extreme gradient boosting training is `r rmsex`. It appears that the RMSE of the basic model (mod3) is the best, followed by LOOCV, LOO-KNN, KNN, and finally XGBT.
+
+# Predictive Function
+## Writing the function
+```{r}
+bpm_pred <- function(years = current_season(), id = NULL, name = NULL, bpm = NULL, g = NULL,usg = NULL,ts = NULL){
+  players <- bart_players(year = years)
+  specific_player <- players[which((players$player == name) & players$year == years),]
+  stats_hold <- bart_player_season(year = years, id = specific_player$id, stat = 'all')
+  bpm2 <- mod3$coefficients[1] + mod3$coefficients[2]*stats_hold$bpm + mod3$coefficients[3]*stats_hold$g + mod3$coefficients[4]*stats_hold$usg + mod3$coefficients[5]*stats_hold$ts
+  unlist(bpm2)
+  if(nrow(specific_player) == 0){
+    return("This player did not play that year")
+  }
+  else{return(cat(as.double(bpm2)))}
+}
+bpm_pred(years = 2022, name = "Greg Elliott")
+```
+
+This function can now take the input of a specific year and a player name and return their predicted BPM based on transfer data... I'm curious what would happen if I added in conf_diff as a predictor and how to calculate on the fly, but that can be a future question.

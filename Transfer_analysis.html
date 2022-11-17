@@ -2103,8 +2103,12 @@ choose K output can be seen below:</p>
 </tbody>
 </table>
 </div>
-<div id="loocv" class="section level3" number="2.1.4">
-<h3><span class="header-section-number">2.1.4</span> LOOCV</h3>
+</div>
+<div id="additional-analysis-methods" class="section level2" number="2.2">
+<h2><span class="header-section-number">2.2</span> Additional analysis
+methods</h2>
+<div id="loocv" class="section level3" number="2.2.1">
+<h3><span class="header-section-number">2.2.1</span> LOOCV</h3>
 <p>In order to minimize RMSE, we will try using the “Leave one out”
 cross-validation technique (through the built in r function). We will
 also run a manual version of LOO in subsequent blocks.</p>
@@ -2112,8 +2116,8 @@ also run a manual version of LOO in subsequent blocks.</p>
 mod_loocv &lt;- train(bpm2 ~ bpm + g + usg + ts, data = dat_reg, method = &quot;lm&quot;, trControl = ctrl)</code></pre>
 <p>The RMSE from the internal LOOCV function is 6.4142</p>
 </div>
-<div id="loo" class="section level3" number="2.1.5">
-<h3><span class="header-section-number">2.1.5</span> LOO</h3>
+<div id="loo" class="section level3" number="2.2.2">
+<h3><span class="header-section-number">2.2.2</span> LOO</h3>
 <pre class="r"><code>tran_loo &lt;- dat_reg[,c(1,2,3,6,11)]
 response_loo &lt;- data.frame(matrix(ncol=4))
 colnames(response_loo) &lt;- c(&#39;ID&#39;,&#39;bpm2&#39;,&#39;Pred_BPM2&#39;,&#39;bpm2_diff&#39;)
@@ -2121,7 +2125,7 @@ for (i in 1:nrow(tran_loo)){
   train_loo &lt;- tran_loo[-i,]
   test_loo &lt;- tran_loo[i,c(1:4)]
   test_loo_y &lt;- tran_loo[i,5]
-  lmmodel = lm(bpm2 ~ bpm + ts + g + usg, data = tran_loo)
+  lmmodel = lm(bpm2 ~ bpm + ts + g + usg, data = train_loo)
   pred_y &lt;- predict(lmmodel, data.frame(test_loo))
   response_loo[i,3] &lt;- pred_y
   response_loo[i,2] &lt;- test_loo_y
@@ -2129,8 +2133,12 @@ for (i in 1:nrow(tran_loo)){
   response_loo[i,4] &lt;- test_loo_y - pred_y
 }
 RMSE_loo &lt;- caret::RMSE(response_loo$bpm2,response_loo$Pred_BPM2)</code></pre>
-<p>The RMSE of self-implemented “leave one out” is: 6.3878. This is the
-same as the RMSE of the regular LM model… not sure why that is?</p>
+<p>The RMSE of self-implemented “leave one out” is: 6.4142. This is the
+same as LOOCV function (which it should be - so it appears that I’m
+doing it correctly).</p>
+</div>
+<div id="loo-knn" class="section level3" number="2.2.3">
+<h3><span class="header-section-number">2.2.3</span> LOO KNN</h3>
 <pre class="r"><code>tran_loo_k &lt;- dat_reg[,c(1,2,3,6,11)]
 response_loo_k &lt;- data.frame(matrix(ncol=4))
 colnames(response_loo_k) &lt;- c(&#39;ID&#39;,&#39;bpm2&#39;,&#39;Pred_BPM2&#39;,&#39;bpm2_diff&#39;)
@@ -2150,6 +2158,43 @@ RMSE_loo_k &lt;- caret::RMSE(response_loo_k$bpm2,response_loo_k$Pred_BPM2)</code
 <p>The RMSE of self-implemented “leave one out KNN regression” is:
 6.5838</p>
 </div>
+<div id="extreme-gradient-boost-analysis" class="section level3" number="2.2.4">
+<h3><span class="header-section-number">2.2.4</span> Extreme Gradient
+Boost analysis</h3>
+<pre class="r"><code>library(xgboost)
+xgb_train = xgb.DMatrix(data = as.matrix(train_x), label = train_y)
+xgb_test = xgb.DMatrix(data = as.matrix(test_x), label = test_y)
+xgbc = xgboost(data = xgb_train, max.depth = 2, nrounds = 50)
+pred_yx = predict(xgbc, xgb_test)
+rmsex = caret::RMSE(test_y, pred_yx)</code></pre>
+<p>The RMSE of extreme gradient boosting training is 9.1772516. It
+appears that the RMSE of the basic model (mod3) is the best, followed by
+LOOCV, LOO-KNN, KNN, and finally XGBT.</p>
+</div>
+</div>
+</div>
+<div id="predictive-function" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> Predictive
+Function</h1>
+<div id="writing-the-function" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Writing the
+function</h2>
+<pre class="r"><code>bpm_pred &lt;- function(years = current_season(), id = NULL, name = NULL, bpm = NULL, g = NULL,usg = NULL,ts = NULL){
+  players &lt;- bart_players(year = years)
+  specific_player &lt;- players[which((players$player == name) &amp; players$year == years),]
+  stats_hold &lt;- bart_player_season(year = years, id = specific_player$id, stat = &#39;all&#39;)
+  bpm2 &lt;- mod3$coefficients[1] + mod3$coefficients[2]*stats_hold$bpm + mod3$coefficients[3]*stats_hold$g + mod3$coefficients[4]*stats_hold$usg + mod3$coefficients[5]*stats_hold$ts
+  unlist(bpm2)
+  if(nrow(specific_player) == 0){
+    return(&quot;This player did not play that year&quot;)
+  }
+  else{return(cat(as.double(bpm2)))}
+}
+bpm_pred(years = 2022, name = &quot;Greg Elliott&quot;)</code></pre>
+<p>This function can now take the input of a specific year and a player
+name and return their predicted BPM based on transfer data… I’m curious
+what would happen if I added in conf_diff as a predictor and how to
+calculate on the fly, but that can be a future question.</p>
 </div>
 </div>
 
