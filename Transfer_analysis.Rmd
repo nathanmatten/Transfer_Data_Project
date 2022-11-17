@@ -380,7 +380,8 @@ bpm_pred_name <- function(years = current_season(), id = NULL, name = NULL){
   else{return(cat(as.double(bpm2)))}
   } 
 bpm_pred_stats <- function(bpm = NULL, g = NULL, usg = NULL, ts = NULL){
-    bpm2 <- mod3$coefficients[1] + mod3$coefficients[2]*bpm + mod3$coefficients[3]*g + mod3$coefficients[4]*usg + mod3$coefficients[5]*ts
+  require(toRvik)  
+  bpm2 <- mod3$coefficients[1] + mod3$coefficients[2]*bpm + mod3$coefficients[3]*g + mod3$coefficients[4]*usg + mod3$coefficients[5]*ts
     return(cat(as.double(bpm2)))
   }
 bpm_pred_name(years = 2022, name = "Baylor Scheierman")
